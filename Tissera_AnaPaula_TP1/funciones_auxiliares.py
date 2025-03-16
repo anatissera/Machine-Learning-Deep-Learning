@@ -11,6 +11,9 @@ def euclidean_distances(X):
 def normalize_dataset(dataset):
     return (dataset - np.min(dataset)) / (np.max(dataset) - np.min(dataset))
 
+def normalize_var(variable):
+    return (variable - np.mean(variable)) / np.std(variable)
+
 def compute_covariance_matrix(dataset):
     covariance_matrix = np.cov(dataset, rowvar=False)
     return covariance_matrix
