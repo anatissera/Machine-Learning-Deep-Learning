@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,7 +15,6 @@ class RegresionLineal:
         """Entrena el modelo usando descenso por gradiente."""
         m, n = self.X.shape
         self.coef = np.zeros(n)
-
         self.historial_perdida = []
 
         for _ in range(epochs):
@@ -24,13 +22,12 @@ class RegresionLineal:
             error = predicciones - self.y
             gradiente = (1 / m) * (self.X.T @ error)
             self.coef -= lr * gradiente
-
-            # Almacenar la pérdida
             self.historial_perdida.append(np.mean(error ** 2))
 
     def predecir(self, X):
         """Realiza predicciones para nuevas muestras."""
-        X = np.hstack((np.ones((X.shape[0], 1)), X))
+        if X.shape[1] + 1 == self.X.shape[1]:  # Verifica si falta agregar la columna de unos
+            X = np.hstack((np.ones((X.shape[0], 1)), X))
         return X @ self.coef
 
     def calcular_ecm(self, X, y):
@@ -69,7 +66,7 @@ class RegresionLineal:
             from mpl_toolkits.mplot3d import Axes3D
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(X[:, 0], X[:, 1], y, color='blue', label='Datos reales')
+            ax.scatter(X[:, 0], X[:, 1], y, color='blue')
 
             X1 = np.linspace(X[:, 0].min(), X[:, 0].max(), 30)
             X2 = np.linspace(X[:, 1].min(), X[:, 1].max(), 30)
@@ -82,43 +79,12 @@ class RegresionLineal:
             ax.set_ylabel(nombres[1])
             ax.set_zlabel('Objetivo')
             plt.title('Regresión Lineal - Dos características')
-            plt.legend()
             plt.show()
 
 # Función auxiliar para cargar los datos
 def cargar_datos(ruta, features, target):
+    import pandas as pd
     df = pd.read_csv(ruta)
     X = df[features].values
     y = df[target].values
     return X, y
-
-# Rutas de los archivos
-ruta_train = 'Tissera_AnaPaula_TP1/casas_train.csv'
-ruta_test = 'Tissera_AnaPaula_TP1/casas_test_corregido.csv'
-
-# Características y objetivo
-features = ['area', 'rooms', 'is_house']
-target = 'price'
-
-# Cargar los conjuntos de entrenamiento y prueba
-X_train, y_train = cargar_datos(ruta_train, features, target)
-X_test, y_test = cargar_datos(ruta_test, features, target)
-
-# Entrenar y evaluar el modelo con pseudo-inversa
-modelo_pi = RegresionLineal(X_train, y_train)
-modelo_pi.entrenar_pseudoinversa()
-print("Coeficientes (pseudo-inversa):")
-modelo_pi.imprimir_coeficientes(features)
-print("ECM en test (pseudo-inversa):", modelo_pi.calcular_ecm(X_test, y_test))
-modelo_pi.graficar_regresion(X_train, y_train, features)
-
-# Entrenar y evaluar el modelo con descenso por gradiente
-modelo_gd = RegresionLineal(X_train, y_train)
-modelo_gd.entrenar_descenso_gradiente(lr=0.01, epochs=10000)
-print("\nCoeficientes (descenso por gradiente):")
-modelo_gd.imprimir_coeficientes(features)
-print("ECM en test (descenso por gradiente):", modelo_gd.calcular_ecm(X_test, y_test))
-
-# Graficar la pérdida durante el entrenamiento
-modelo_gd.graficar_perdida()
-modelo_gd.graficar_regresion(X_train, y_train, features)
