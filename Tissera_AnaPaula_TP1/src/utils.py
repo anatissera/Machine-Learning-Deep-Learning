@@ -24,25 +24,27 @@ def save_csv(df, nombre_archivo):
     """Guarda un DataFrame en un archivo CSV."""
     df.to_csv(nombre_archivo, index=False)
     print(f"Dataset guardado como '{nombre_archivo}'.")
-    
-from models import log_predict
 
-def complete_missing_rooms_values(df, W, b, mean_train, std_train):
-    """Completa los valores faltantes en la columna 'rooms' usando el modelo entrenado."""
-    # 1. Filtrar filas con valores faltantes en "rooms"
-    df_faltantes = df[df['rooms'].isna()].copy()
-    
-    # 2. Tomar X (area) de las filas faltantes
-    X_faltantes = df_faltantes[['area']].values
 
-    # 3. Normalizar X usando las estadísticas de entrenamiento
-    X_faltantes = (X_faltantes - mean_train) / std_train
+def complete_data(df, to_drop):
+    """Elimina filas con valores faltantes en las columnas especificadas."""
+    return df.dropna(subset=to_drop)
 
-    # 4. Predecir los valores de "rooms"
-    y_pred_faltantes = log_predict(X_faltantes, W, b)
+def normalize_given_μ_σ(X_new, mean_train, std_train):
+    """Normaliza nuevos datos usando los valores de X_train."""
+    return (X_new - mean_train) / (std_train + 1e-8)
 
-    # 5. Insertar los valores predichos en el dataframe original
-    df.loc[df['rooms'].isna(), 'rooms'] = y_pred_faltantes
+def add_bias(X):
+    """Añade una columna de unos para el término de sesgo (intercepto)."""
+    return np.c_[np.ones(X.shape[0]), X]
 
-    print(f"{len(df_faltantes)} valores faltantes en 'rooms' completados.")
-    return df
+def generate_polynomial_features(X, grado=1):
+    """Genera términos polinómicos hasta el grado especificado."""
+    return np.hstack([X ** g for g in range(1, grado + 1)])
+
+def load_data(ruta, features, target):
+    import pandas as pd
+    df = pd.read_csv(ruta)
+    X = df[features].values
+    y = df[target].values
+    return X, y
