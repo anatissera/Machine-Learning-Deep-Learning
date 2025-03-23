@@ -6,7 +6,9 @@ import seaborn as sns
 def missing_values(df):
     print("\nValores faltantes por columna:")
     print(df.isna().sum())
-
+    
+def missinng_values_in_column(df, column):
+    return df[column].isna().sum()
     
 def missing_percentages(df):
     total_filas = len(df)
@@ -30,9 +32,10 @@ def complete_data(df, to_drop):
     """Elimina filas con valores faltantes en las columnas especificadas."""
     return df.dropna(subset=to_drop)
 
-def normalize_given_μ_σ(X_new, mean_train, std_train):
-    """Normaliza nuevos datos usando los valores de X_train."""
-    return (X_new - mean_train) / (std_train + 1e-8)
+def normalize_given_μ_σ(X, mean, std):
+    """Normaliza X con la media y desviación estándar dadas."""
+    return (X - mean) / std
+
 
 def add_bias(X):
     """Añade una columna de unos para el término de sesgo (intercepto)."""
@@ -43,7 +46,6 @@ def generate_polynomial_features(X, grado=1):
     return np.hstack([X ** g for g in range(1, grado + 1)])
 
 def load_data(ruta, features, target):
-    import pandas as pd
     df = pd.read_csv(ruta)
     X = df[features].values
     y = df[target].values

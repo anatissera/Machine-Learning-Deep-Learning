@@ -29,13 +29,13 @@ def plot_correlation(df, dset):
     plt.title(f"Correlation Heatmap for {dset}", size=15)
     plt.show()
     
-def plot_rooms_vs_area(df, title: str):
+def plot_rooms_vs_area(df):
     plt.figure(figsize=(5,4))
     plt.scatter(df["area"], df["rooms"], alpha=0.6, edgecolors="k")
 
     plt.xlabel("Área (m²)")
     plt.ylabel("Número de habitaciones")
-    plt.title(f"Distribución de Rooms vs Área {title}")
+    plt.title(f"Distribución de Rooms vs Área")
     plt.grid(True)
 
     plt.show()

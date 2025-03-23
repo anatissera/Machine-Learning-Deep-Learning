@@ -2,130 +2,109 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class LinearRegression:
-    def __init__(self, X, y, normalizar=False):
-        """
-        Inicializa el modelo de regresión lineal.
-        Parámetros:
-        - X: Matriz de características (muestras x características)
-        - y: Vector de valores objetivo
-        - normalizar: Si es True, normaliza las características (media=0, std=1)
-        """
-        self.normalizar = normalizar
+    def __init__(self, X_train, y_train, X_val, y_val):
         self.media_X = None
         self.std_X = None
 
-        if self.normalizar:
-            self.media_X = np.mean(X, axis=0)
-            self.std_X = np.std(X, axis=0)
-            X = (X - self.media_X) / (self.std_X + 1e-8)  # Evita divisiones por 0
-
-        self.X = np.hstack((np.ones((X.shape[0], 1)), X))  # Agrega el término de sesgo
-        self.y = y
+        self.X_train = np.hstack((np.ones((X_train.shape[0], 1)), X_train))
+        self.y_train = y_train
+        self.X_val = np.hstack((np.ones((X_val.shape[0], 1)), X_val))
+        self.y_val = y_val
         self.coef = None
+        self.historial_perdida_train = []
+        self.historial_perdida_val = []
 
     def entrenar_pseudoinversa(self):
-        """Entrena el modelo usando la pseudo-inversa con SVD manual."""
-        U, S, Vt = np.linalg.svd(self.X, full_matrices=False)
-
-        # Manejo de valores singulares pequeños (evitar división por cero)
-        tol = 1e-5  # Umbral para valores singulares pequeños
+        U, S, Vt = np.linalg.svd(self.X_train, full_matrices=False)
+        tol = 1e-5  
         S_inv = np.diag([1/s if s > tol else 0 for s in S])
+        self.coef = Vt.T @ S_inv @ U.T @ self.y_train
 
-        self.coef = Vt.T @ S_inv @ U.T @ self.y
-
-
-    def entrenar_descenso_gradiente(self, lr=0.01, epochs=1000):
-        """Entrena el modelo con descenso por gradiente."""
-        m, n = self.X.shape
+    def entrenar_descenso_gradiente(self, lr=0.01, epochs=1000, early_stopping=True, tol=1e-5, paciencia=10):
+        m, n = self.X_train.shape
         self.coef = np.zeros(n)
-        self.historial_perdida = []
+        self.historial_perdida_train = []
+        self.historial_perdida_val = []
+        mejor_perdida = float('inf')
+        paciencia_contador = 0
 
-        for _ in range(epochs):
-            predicciones = self.X @ self.coef
-            error = predicciones - self.y
-            gradiente = (1 / m) * (self.X.T @ error)
+        for epoch in range(epochs):
+            predicciones_train = self.X_train @ self.coef
+            error_train = predicciones_train - self.y_train
+            gradiente = (1 / m) * (self.X_train.T @ error_train)
             self.coef -= lr * gradiente
-            self.historial_perdida.append(np.mean(error ** 2))
+            
+            perdida_train = np.mean(error_train ** 2)
+            perdida_val = np.mean((self.X_val @ self.coef - self.y_val) ** 2)
+            
+            self.historial_perdida_train.append(perdida_train)
+            self.historial_perdida_val.append(perdida_val)
+            
+            if early_stopping:
+                if perdida_val < mejor_perdida - tol:
+                    mejor_perdida = perdida_val
+                    paciencia_contador = 0
+                else:
+                    paciencia_contador += 1
+                    if paciencia_contador >= paciencia:
+                        print(f"Early stopping en epoch {epoch+1}")
+                        break
 
-            # Verificación de estabilidad numérica
             if np.isnan(self.coef).any():
-                print("Error: Coeficientes nan detectados, reduce la tasa de aprendizaje.")
+                print("Error: Coeficientes nan detectados, reducir la tasa de aprendizaje.")
                 return
 
     def predecir(self, X):
-        """Realiza predicciones para nuevas muestras."""
-        if self.normalizar:
-            X = (X - self.media_X) / (self.std_X + 1e-8)
-
-        if X.shape[1] + 1 == self.X.shape[1]:
+        if X.shape[1] + 1 == self.X_train.shape[1]:
             X = np.hstack((np.ones((X.shape[0], 1)), X))
-
         return X @ self.coef
 
-    def calcular_ecm(self, X, y):
-        """Calcula el Error Cuadrático Medio (ECM)."""
-        y_pred = self.predecir(X)
-        return np.mean((y - y_pred) ** 2)
+    def evaluar(self, X_test, y_test):
+        predicciones = self.predecir(X_test)
+        mse = np.mean((predicciones - y_test) ** 2)
+        print(f"Error cuadrático medio (RMSE) en test: {mse:.4f}")
+        return mse
 
-    def imprimir_coeficientes(self, nombres):
-        """Imprime los coeficientes con los nombres de las variables."""
-        if self.coef is None:
-            print("El modelo no ha sido entrenado aún.")
-            return
+    def graficar_regresion_pseudoinversa(self, X, y, nombres):
+        if X.shape[1] == 1:
+            plt.scatter(X, y, color='blue', label='real data')
+            X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+            y_pred = self.predecir(X_line)
+            plt.plot(X_line, y_pred, color='green', label='Pseudo-inverse')
+            plt.xlabel(nombres[0])
+            plt.ylabel('Target price')
+            plt.legend()
+            plt.title('Linear Regression - Pseudo-inverse')
+            plt.show()
 
-        for nombre, coef in zip(["intercepto"] + nombres, self.coef):
-            print(f"{nombre}: {coef:.4f}")
+    def graficar_regresion_descenso_gradiente(self, X, y, nombres):
+        if X.shape[1] == 1:
+            plt.scatter(X, y, color='blue', label='Real data')
+            X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+            y_pred = self.predecir(X_line)
+            plt.plot(X_line, y_pred, color='red', label=' Gradient Descent')
+            plt.xlabel(nombres[0])
+            plt.ylabel('Target price')
+            plt.legend()
+            plt.title('Linear Regression - Gradient Descent')
+            plt.show()
 
     def graficar_perdida(self):
-        """Grafica la pérdida durante el entrenamiento."""
-        if hasattr(self, 'historial_perdida') and self.historial_perdida:
-            plt.plot(self.historial_perdida)
+        if self.historial_perdida_train and self.historial_perdida_val:
+            plt.plot(self.historial_perdida_train, label='Train')
+            plt.plot(self.historial_perdida_val, label='Validation')
             plt.xlabel('Épocas')
-            plt.ylabel('Error Cuadrático Medio')
+            plt.ylabel('Error Cuadrático Medio (RMSE)')
             plt.title('Pérdida durante el entrenamiento')
+            plt.legend()
             plt.show()
         else:
             print("No hay datos de entrenamiento con descenso por gradiente.")
 
-    def graficar_regresion(self, X, y, nombres):
-        """Grafica la regresión para una o dos características."""
-        if X.shape[1] == 1:  # Una sola característica
-            plt.scatter(X, y, color='blue', label='Datos reales')
-            X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
-            y_pred = self.predecir(X_line)
-            plt.plot(X_line, y_pred, color='red', label='Regresión lineal')
-            plt.xlabel(nombres[0])
-            plt.ylabel('Objetivo')
-            plt.legend()
-            plt.title('Regresión Lineal - Una característica')
-            plt.show()
 
-        elif X.shape[1] == 2:  # Dos características (gráfico 3D)
-            from mpl_toolkits.mplot3d import Axes3D
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(X[:, 0], X[:, 1], y, color='blue')
-
-            X1 = np.linspace(X[:, 0].min(), X[:, 0].max(), 30)
-            X2 = np.linspace(X[:, 1].min(), X[:, 1].max(), 30)
-            X1, X2 = np.meshgrid(X1, X2)
-            X_grid = np.c_[X1.ravel(), X2.ravel()]
-            y_pred = self.predecir(X_grid).reshape(X1.shape)
-
-            ax.plot_surface(X1, X2, y_pred, color='red', alpha=0.6)
-            ax.set_xlabel(nombres[0])
-            ax.set_ylabel(nombres[1])
-            ax.set_zlabel('Objetivo')
-            plt.title('Regresión Lineal - Dos características')
-            plt.show()
-
-# Función para cargar datos desde un CSV
-
-
-
-from preprocessing import one_hot_encoding, softmax
-from data_splitting import divide_train_test
-from utils import complete_data, normalize_given_μ_σ
+from src.preprocessing import one_hot_encoding, softmax
+from src.data_splitting import divide_train_test
+from src.utils import complete_data, normalize_given_μ_σ
 
 def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1):
     """Entrena un modelo de regresión logística multinomial con normalización dentro de la función."""
@@ -189,7 +168,7 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1)
     return best_W, best_b, mean_train, std_train 
 
 
-
+# con área debería hacer min max scaling, no estandarización, tengo que arreglar eso
 
 def log_predict(X, W, b):
     """Realiza predicciones con el modelo entrenado."""
@@ -227,11 +206,12 @@ def predict_rooms_train_test(df):
     X_train, X_test, y_train, y_test = divide_train_test(X, y)
 
     mean_train = np.mean(X_train, axis=0)
+    print("mean_train", mean_train)
     std_train = np.std(X_train, axis=0)
 
     X_test = (X_test - mean_train) / std_train  # Se usa la misma normalización que para train que se normaliza adentro de la función porque se hace un split de validación también
 
-    W, b, mean_train, std_train = multinomial_logistic(X_train, y_train, lr=0.1, epochs=28694)
+    W, b, mean_train, std_train = multinomial_logistic(X_train, y_train, lr=0.1, epochs=30000)
     
     y_pred = log_predict(X_test, W, b)
     accuracy = precision(y_test, y_pred)
@@ -248,25 +228,24 @@ def predict_rooms_no_split(df):
 
     y = y - np.min(y)
 
-    W, b, mean_train, std_train = multinomial_logistic(X, y, lr=0.1, epochs=28694)
+    W, b, mean_train, std_train = multinomial_logistic(X, y, lr=0.1, epochs=30000)
     
     return W, b, mean_train, std_train
 
 
+from src.data_splitting import train_val_test_split
+from src.utils import generate_polynomial_features, add_bias
+from src.metrics import calculate_rmse
 
-
-from data_splitting import train_val_test_split
-from utils import generate_polynomial_features, add_bias
-from metrics import calculate_rmse
-
+# area y price hay que min max scaling, no estandarización, tengo que arreglar eso
 
 def train_regression_for_age(df_train, features, grado=1):
     """Entrena regresión polinómica en train y devuelve parámetros."""
     X_train = generate_polynomial_features(df_train[features].values, grado)
     mean_train = np.mean(X_train, axis=0)
-    std_train = np.std(X_train, axis=0) + 1e-8  # para evitar la división por cero
+    std_train = np.std(X_train, axis=0) + 1e-8  # para evitar división por cero
     X_train = normalize_given_μ_σ(X_train, mean_train, std_train)
-    X_train = add_bias(X_train)  # Agregar sesgo después de normalizar
+    X_train = add_bias(X_train)
     y_train = df_train['age'].values
     
     theta = np.linalg.pinv(X_train.T @ X_train) @ X_train.T @ y_train
@@ -275,7 +254,7 @@ def train_regression_for_age(df_train, features, grado=1):
 def reg_predict_age(X, theta, mean_train, std_train, grado=1):
     """Predice valores de 'age' normalizando con las estadísticas de train."""
     X_poly = generate_polynomial_features(X, grado)
-    X_poly = normalize_given_μ_σ(X_poly, mean_train, std_train)  # Normalizar antes del sesgo
+    X_poly = normalize_given_μ_σ(X_poly, mean_train, std_train)
     X_poly = add_bias(X_poly)
     return X_poly @ theta
 
@@ -284,30 +263,31 @@ def evaluate_reg_model_age(df, theta, mean_train, std_train, features, grado):
     X = generate_polynomial_features(df[features].values, grado)
     X = normalize_given_μ_σ(X, mean_train, std_train)
     X = add_bias(X)
-    
     y_pred = X @ theta
     return calculate_rmse(df['age'].values, y_pred)
 
 def complete_missing_age_values(df, theta, mean_train, std_train, features, grado=1):
     """Completa valores faltantes en 'age' usando el modelo entrenado."""
-    df_faltantes = df[df['age'].isna()].copy()
-    if df_faltantes.empty:
+    mask_missing = df['age'].isna()
+    if mask_missing.sum() == 0:
         print("No hay valores faltantes en 'age'.")
         return df
     
-    X_faltantes = df_faltantes[features].values
-    df.loc[df['age'].isna(), 'age'] = reg_predict_age(X_faltantes, theta, mean_train, std_train, grado)
-    
-    print(f"{len(df_faltantes)} valores faltantes en 'age' completados.")
+    X_faltantes = df.loc[mask_missing, features].values
+    df.loc[mask_missing, 'age'] = reg_predict_age(X_faltantes, theta, mean_train, std_train, grado)
+    print(f"{mask_missing.sum()} valores faltantes en 'age' completados.")
     return df
 
-def evaluate_complete_model_age(df, features, grado=1):
-    """Entrena el modelo y evalúa su desempeño en train, validación y test."""
+def evaluate_and_impute(df, features, grado=1):
+    """Entrena el modelo, lo evalúa y luego imputa valores faltantes."""
     df_train, df_val, df_test = train_val_test_split(df)
     theta, mean_train, std_train = train_regression_for_age(df_train, features, grado)
     
-    print(f"Train RMSE: {evaluate_reg_model_age(df_train, theta, mean_train, std_train, features, grado):.4f}")
-    print(f"Validation RMSE: {evaluate_reg_model_age(df_val, theta, mean_train, std_train, features, grado):.4f}")
-    print(f"Test RMSE: {evaluate_reg_model_age(df_test, theta, mean_train, std_train, features, grado):.4f}")
+    print(f"Train de Train_df RMSE: {evaluate_reg_model_age(df_train, theta, mean_train, std_train, features, grado):.4f}")
+    print(f"Validation de Train_df RMSE: {evaluate_reg_model_age(df_val, theta, mean_train, std_train, features, grado):.4f}")
+    print(f"Test de Train_df RMSE: {evaluate_reg_model_age(df_test, theta, mean_train, std_train, features, grado):.4f}")
     
-    return theta, mean_train, std_train
+    # Entrenar con todos los datos completos antes de imputar
+    theta_full, mean_full, std_full = train_regression_for_age(df.dropna(subset=['age']), features, grado)
+    df = complete_missing_age_values(df, theta_full, mean_full, std_full, features, grado)
+    return df
