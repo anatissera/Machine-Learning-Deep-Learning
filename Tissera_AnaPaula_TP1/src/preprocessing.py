@@ -32,29 +32,29 @@ def compute_statistics(df):
 def normalize_var(df, variable, stats):
     return (df[f"{variable}"] - stats[f"{variable}_mean"]) / stats[f"{variable}_std"]
 
-def scale_df(df, stats, missing_values: bool=False):
+def scale_df(df, stats, is_test_set=False):
     df_scaled = df.copy()
 
-    if missing_values:
-        df_scaled['age'] = (df_scaled['age'] - stats['age_mean']) / stats['age_std']
-        df_scaled['rooms'] = (df_scaled['rooms'] - stats['rooms_mean']) / stats['rooms_std']
+    # Estandarizar
+    df_scaled['age'] = (df_scaled['age'] - stats['age_mean']) / stats['age_std']
+    df_scaled['rooms'] = (df_scaled['rooms'] - stats['rooms_mean']) / stats['rooms_std']
+    
+    # Min Max Scaling
+    df_scaled['area'] = (df_scaled['area'] - stats['area_min']) / (stats['area_max'] - stats['area_min'])
 
-    else:
-        # df_scaled['area'] = np.log(df_scaled['area'] + 1)
-        
-        # if 'price' in df_scaled.columns:
-        #     df_scaled['price'] = np.log(df_scaled['price'] + 1)
-
-        # df_scaled['area'] = (df_scaled['area'] - stats['area_min']) / (stats['area_max'] - stats['area_min'])
-        
-        
-        df_scaled['area'] = (df_scaled['area'] - stats['area_min']) / (stats['area_max'] - stats['area_min'])
-
+    if not is_test_set:
         if 'price' in df_scaled.columns:
             df_scaled['price'] = (df_scaled['price'] - stats['price_min']) / (stats['price_max'] - stats['price_min'])
 
+    # df_scaled['area'] = np.log(df_scaled['area'] + 1)
+    
+    # if 'price' in df_scaled.columns:
+    #     df_scaled['price'] = np.log(df_scaled['price'] + 1)
 
-        # Las variables binarias quedan igual (has_pool, is_house)
+    # df_scaled['area'] = (df_scaled['area'] - stats['area_min']) / (stats['area_max'] - stats['area_min'])
+    
+
+    # Las variables binarias quedan igual (has_pool, is_house)
 
     return df_scaled
 

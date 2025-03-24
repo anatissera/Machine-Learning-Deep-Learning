@@ -7,7 +7,7 @@ def missing_values(df):
     print("\nValores faltantes por columna:")
     print(df.isna().sum())
     
-def missinng_values_in_column(df, column):
+def missing_values_in_column(df, column):
     return df[column].isna().sum()
     
 def missing_percentages(df):
@@ -45,8 +45,9 @@ def generate_polynomial_features(X, grado=1):
     """Genera términos polinómicos hasta el grado especificado."""
     return np.hstack([X ** g for g in range(1, grado + 1)])
 
-def load_data(ruta, features, target):
-    df = pd.read_csv(ruta)
+def load_data(path, df, features, target, is_df=False):
+    if not is_df:
+        df = pd.read_csv(path)
     X = df[features].values
     y = df[target].values
     return X, y

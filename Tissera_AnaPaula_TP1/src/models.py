@@ -1,11 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from src.preprocessing import area_units_conversion
 
 class LinearRegression:
-    def __init__(self, X_train, y_train, X_val, y_val):
-        self.media_X = None
-        self.std_X = None
-
+    def __init__(self, X_train, y_train, X_val, y_val, train_stats=None):
+        self.train_stats = train_stats  # Guardamos los stats para desnormalizar
         self.X_train = np.hstack((np.ones((X_train.shape[0], 1)), X_train))
         self.y_train = y_train
         self.X_val = np.hstack((np.ones((X_val.shape[0], 1)), X_val))
@@ -57,36 +56,51 @@ class LinearRegression:
     def predecir(self, X):
         if X.shape[1] + 1 == self.X_train.shape[1]:
             X = np.hstack((np.ones((X.shape[0], 1)), X))
-        return X @ self.coef
+        predicciones = X @ self.coef
+        
+        # if self.train_stats and 'price_min' in self.train_stats and 'price_max' in self.train_stats:
+        predicciones = predicciones * (self.train_stats['price_max'] - self.train_stats['price_min']) + self.train_stats['price_min']
+        
+        return predicciones
 
     def evaluar(self, X_test, y_test):
-        predicciones = self.predecir(X_test)
-        mse = np.mean((predicciones - y_test) ** 2)
-        print(f"Error cuadrático medio (RMSE) en test: {mse:.4f}")
+        y_pred = self.predecir(X_test)
+        
+        # if self.train_stats and 'price_min' in self.train_stats and 'price_max' in self.train_stats:
+        #     y_test_real = y_test * (self.train_stats['price_max'] - self.train_stats['price_min']) + self.train_stats['price_min']
+        # else:
+        #     y_test_real = y_test
+
+        mse = np.mean((y_pred - y_test) ** 2)
+        print(f"Error cuadrático medio (MSE) en test: {mse:.4f}")
         return mse
 
     def graficar_regresion_pseudoinversa(self, X, y, nombres):
         if X.shape[1] == 1:
-            plt.scatter(X, y, color='blue', label='real data')
+            plt.scatter(X, y, color='blue', label='Datos reales')
+
             X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
             y_pred = self.predecir(X_line)
-            plt.plot(X_line, y_pred, color='green', label='Pseudo-inverse')
+            
+            plt.plot(X_line, y_pred, color='green', label='Pseudoinversa')
             plt.xlabel(nombres[0])
-            plt.ylabel('Target price')
+            plt.ylabel('Price real')
             plt.legend()
-            plt.title('Linear Regression - Pseudo-inverse')
+            plt.title('Regresión Lineal - Pseudoinversa')
             plt.show()
 
     def graficar_regresion_descenso_gradiente(self, X, y, nombres):
         if X.shape[1] == 1:
-            plt.scatter(X, y, color='blue', label='Real data')
+            plt.scatter(X, y, color='blue', label='Datos reales')
+
             X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
             y_pred = self.predecir(X_line)
-            plt.plot(X_line, y_pred, color='red', label=' Gradient Descent')
+            
+            plt.plot(X_line, y_pred, color='red', label='Gradiente')
             plt.xlabel(nombres[0])
-            plt.ylabel('Target price')
+            plt.ylabel('Price real')
             plt.legend()
-            plt.title('Linear Regression - Gradient Descent')
+            plt.title('Regresión Lineal - Gradiente')
             plt.show()
 
     def graficar_perdida(self):
@@ -94,7 +108,7 @@ class LinearRegression:
             plt.plot(self.historial_perdida_train, label='Train')
             plt.plot(self.historial_perdida_val, label='Validation')
             plt.xlabel('Épocas')
-            plt.ylabel('Error Cuadrático Medio (RMSE)')
+            plt.ylabel('Error Cuadrático Medio (MSE)')
             plt.title('Pérdida durante el entrenamiento')
             plt.legend()
             plt.show()
@@ -106,8 +120,9 @@ from src.preprocessing import one_hot_encoding, softmax
 from src.data_splitting import divide_train_test
 from src.utils import complete_data, normalize_given_μ_σ
 
-def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1):
-    """Entrena un modelo de regresión logística multinomial con normalización dentro de la función."""
+
+def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1, standardize_cols=None, scale_cols=None):
+    """Entrena un modelo de regresión logística multinomial con normalización/escalado según corresponda."""
     
     num_samples, num_features = X.shape
     num_classes = np.unique(y).size
@@ -116,11 +131,20 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1)
     X_train, X_val = X[:val_split], X[val_split:]
     y_train, y_val = y[:val_split], y[val_split:]
 
-    mean_train = np.mean(X_train, axis=0)
-    std_train = np.std(X_train, axis=0)
+    # Calcular estadísticas para normalizar/escalar
+    mean_train = np.mean(X_train[:, standardize_cols], axis=0) if standardize_cols else None
+    std_train = np.std(X_train[:, standardize_cols], axis=0) + 1e-8 if standardize_cols else None
+    min_train = np.min(X_train[:, scale_cols], axis=0) if scale_cols else None
+    max_train = np.max(X_train[:, scale_cols], axis=0) if scale_cols else None
 
-    X_train = (X_train - mean_train) / (std_train + 1e-8)  # +1e-8 para evitar división por cero
-    X_val = (X_val - mean_train) / (std_train + 1e-8) # con los estadísticos de train
+    # Aplicar normalización y escalado
+    if standardize_cols:
+        X_train[:, standardize_cols] = (X_train[:, standardize_cols] - mean_train) / std_train
+        X_val[:, standardize_cols] = (X_val[:, standardize_cols] - mean_train) / std_train
+
+    if scale_cols:
+        X_train[:, scale_cols] = (X_train[:, scale_cols] - min_train) / (max_train - min_train + 1e-8)
+        X_val[:, scale_cols] = (X_val[:, scale_cols] - min_train) / (max_train - min_train + 1e-8)
 
     y_train_one_hot = one_hot_encoding(y_train, num_classes)
     y_val_one_hot = one_hot_encoding(y_val, num_classes)
@@ -137,7 +161,6 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1)
         logits = np.dot(X_train, W) + b
         probs = softmax(logits)
 
-        # pérdida -> cross-entropy
         loss_train = -np.mean(y_train_one_hot * np.log(probs + 1e-8))
 
         logits_val = np.dot(X_val, W) + b
@@ -165,10 +188,8 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1)
         if epoch % 5000 == 0:
             print(f"Época {epoch}, Pérdida Train: {loss_train:.4f}, Pérdida Val: {loss_val:.4f}")
 
-    return best_W, best_b, mean_train, std_train 
+    return best_W, best_b, mean_train, std_train, min_train, max_train
 
-
-# con área debería hacer min max scaling, no estandarización, tengo que arreglar eso
 
 def log_predict(X, W, b):
     """Realiza predicciones con el modelo entrenado."""
@@ -181,13 +202,13 @@ def precision(y_real, y_pred):
     return np.mean(y_real == y_pred)
 
 
-def complete_missing_rooms_values(df, W, b, mean_train, std_train):
-    """Completa los valores faltantes en la columna 'rooms' usando el modelo entrenado."""
-
+def complete_missing_rooms_values(df, W, b, mean_train, std_train, min_train, max_train):
+    """Completa los valores faltantes en 'rooms' aplicando Min-Max Scaling a 'area'."""
+    
     df_faltantes = df[df['rooms'].isna()].copy()
     X_faltantes = df_faltantes[['area']].values
-    X_faltantes = (X_faltantes - mean_train) / std_train # usando las estadísticas de train
-
+    X_faltantes = (X_faltantes - min_train) / (max_train - min_train + 1e-8)  # Min-Max Scaling
+    
     y_pred_faltantes = log_predict(X_faltantes, W, b)
     df.loc[df['rooms'].isna(), 'rooms'] = y_pred_faltantes
     print(f"{len(df_faltantes)} valores faltantes en 'rooms' completados.")
@@ -196,8 +217,9 @@ def complete_missing_rooms_values(df, W, b, mean_train, std_train):
 
 
 def predict_rooms_train_test(df):
+    """Entrena el modelo dividiendo en train/test y ajustando correctamente el escalado de 'area'."""
+    
     datos = complete_data(df, ['rooms'])
-
     X = datos[['area']].values
     y = datos['rooms'].values.astype(int)
 
@@ -205,32 +227,34 @@ def predict_rooms_train_test(df):
 
     X_train, X_test, y_train, y_test = divide_train_test(X, y)
 
-    mean_train = np.mean(X_train, axis=0)
-    print("mean_train", mean_train)
-    std_train = np.std(X_train, axis=0)
-
-    X_test = (X_test - mean_train) / std_train  # Se usa la misma normalización que para train que se normaliza adentro de la función porque se hace un split de validación también
-
-    W, b, mean_train, std_train = multinomial_logistic(X_train, y_train, lr=0.1, epochs=30000)
+    W, b, mean_train, std_train, min_train, max_train = multinomial_logistic(
+        X_train, y_train, lr=0.1, epochs=30000, standardize_cols=[], scale_cols=[0]  # Escalado solo para 'area'
+    )
     
+    X_test = (X_test - min_train) / (max_train - min_train + 1e-8)  # Aplicar Min-Max Scaling en test
+
     y_pred = log_predict(X_test, W, b)
     accuracy = precision(y_test, y_pred)
     print(f"Precisión en el conjunto de prueba de train_df: {accuracy:.4f}")
     
-    return W, b, mean_train, std_train
+    return W, b, mean_train, std_train, min_train, max_train
 
 
 def predict_rooms_no_split(df):
+    """Entrena el modelo sin división de datos, ajustando el escalado de 'area'."""
+    
     datos = complete_data(df, ['rooms'])
-
     X = datos[['area']].values
     y = datos['rooms'].values.astype(int)
 
     y = y - np.min(y)
 
-    W, b, mean_train, std_train = multinomial_logistic(X, y, lr=0.1, epochs=30000)
+    W, b, mean_train, std_train, min_train, max_train = multinomial_logistic(
+        X, y, lr=0.1, epochs=30000, standardize_cols=[], scale_cols=[0]
+    )
     
-    return W, b, mean_train, std_train
+    return W, b, mean_train, std_train, min_train, max_train
+
 
 
 from src.data_splitting import train_val_test_split
@@ -239,34 +263,47 @@ from src.metrics import calculate_rmse
 
 # area y price hay que min max scaling, no estandarización, tengo que arreglar eso
 
-def train_regression_for_age(df_train, features, grado=1):
-    """Entrena regresión polinómica en train y devuelve parámetros."""
+def normalize_or_scale(X, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols):
+    """Aplica normalización o escalado según la columna."""
+    X_transformed = X.copy()
+    if standardize_cols:
+        X_transformed[:, standardize_cols] = (X[:, standardize_cols] - mean_train) / std_train
+    if scale_cols:
+        X_transformed[:, scale_cols] = (X[:, scale_cols] - min_train) / (max_train - min_train + 1e-8)
+    return X_transformed
+
+def train_regression_for_age(df_train, features, standardize_cols, scale_cols, grado=1):
+    """Entrena regresión polinómica en train y devuelve parámetros y estadísticas."""
     X_train = generate_polynomial_features(df_train[features].values, grado)
-    mean_train = np.mean(X_train, axis=0)
-    std_train = np.std(X_train, axis=0) + 1e-8  # para evitar división por cero
-    X_train = normalize_given_μ_σ(X_train, mean_train, std_train)
+    
+    mean_train = np.mean(X_train[:, standardize_cols], axis=0)
+    std_train = np.std(X_train[:, standardize_cols], axis=0) + 1e-8
+    min_train = np.min(X_train[:, scale_cols], axis=0)
+    max_train = np.max(X_train[:, scale_cols], axis=0)
+    
+    X_train = normalize_or_scale(X_train, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols)
     X_train = add_bias(X_train)
     y_train = df_train['age'].values
     
     theta = np.linalg.pinv(X_train.T @ X_train) @ X_train.T @ y_train
-    return theta, mean_train, std_train
+    return theta, mean_train, std_train, min_train, max_train
 
-def reg_predict_age(X, theta, mean_train, std_train, grado=1):
-    """Predice valores de 'age' normalizando con las estadísticas de train."""
+def reg_predict_age(X, theta, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols, grado=1):
+    """Predice valores de 'age' normalizando/escalando con estadísticas de train."""
     X_poly = generate_polynomial_features(X, grado)
-    X_poly = normalize_given_μ_σ(X_poly, mean_train, std_train)
+    X_poly = normalize_or_scale(X_poly, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols)
     X_poly = add_bias(X_poly)
     return X_poly @ theta
 
-def evaluate_reg_model_age(df, theta, mean_train, std_train, features, grado):
+def evaluate_reg_model_age(df, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):
     """Evalúa el modelo calculando el RMSE en un dataset dado."""
     X = generate_polynomial_features(df[features].values, grado)
-    X = normalize_given_μ_σ(X, mean_train, std_train)
+    X = normalize_or_scale(X, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols)
     X = add_bias(X)
     y_pred = X @ theta
     return calculate_rmse(df['age'].values, y_pred)
 
-def complete_missing_age_values(df, theta, mean_train, std_train, features, grado=1):
+def complete_missing_age_values(df, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado=1):
     """Completa valores faltantes en 'age' usando el modelo entrenado."""
     mask_missing = df['age'].isna()
     if mask_missing.sum() == 0:
@@ -274,20 +311,23 @@ def complete_missing_age_values(df, theta, mean_train, std_train, features, grad
         return df
     
     X_faltantes = df.loc[mask_missing, features].values
-    df.loc[mask_missing, 'age'] = reg_predict_age(X_faltantes, theta, mean_train, std_train, grado)
+    df.loc[mask_missing, 'age'] = np.round(reg_predict_age(X_faltantes, theta, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols, grado)).astype(int)
+    
     print(f"{mask_missing.sum()} valores faltantes en 'age' completados.")
     return df
 
-def evaluate_and_impute(df, features, grado=1):
+def evaluate_and_impute(df, features, standardize_cols, scale_cols, grado=1):
     """Entrena el modelo, lo evalúa y luego imputa valores faltantes."""
     df_train, df_val, df_test = train_val_test_split(df)
-    theta, mean_train, std_train = train_regression_for_age(df_train, features, grado)
     
-    print(f"Train de Train_df RMSE: {evaluate_reg_model_age(df_train, theta, mean_train, std_train, features, grado):.4f}")
-    print(f"Validation de Train_df RMSE: {evaluate_reg_model_age(df_val, theta, mean_train, std_train, features, grado):.4f}")
-    print(f"Test de Train_df RMSE: {evaluate_reg_model_age(df_test, theta, mean_train, std_train, features, grado):.4f}")
+    theta, mean_train, std_train, min_train, max_train = train_regression_for_age(df_train, features, standardize_cols, scale_cols, grado)
+    
+    print(f"Train RMSE: {evaluate_reg_model_age(df_train, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):.4f}")
+    print(f"Validation RMSE: {evaluate_reg_model_age(df_val, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):.4f}")
+    print(f"Test RMSE: {evaluate_reg_model_age(df_test, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):.4f}")
     
     # Entrenar con todos los datos completos antes de imputar
-    theta_full, mean_full, std_full = train_regression_for_age(df.dropna(subset=['age']), features, grado)
-    df = complete_missing_age_values(df, theta_full, mean_full, std_full, features, grado)
+    theta_full, mean_full, std_full, min_full, max_full = train_regression_for_age(df.dropna(subset=['age']), features, standardize_cols, scale_cols, grado)
+    df = complete_missing_age_values(df, theta_full, mean_full, std_full, min_full, max_full, features, standardize_cols, scale_cols, grado)
+    
     return df
