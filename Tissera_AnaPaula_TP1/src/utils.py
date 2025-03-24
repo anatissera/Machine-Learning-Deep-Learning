@@ -51,3 +51,28 @@ def load_data(path, df, features, target, is_df=False):
     X = df[features].values
     y = df[target].values
     return X, y
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371  # Radio de la Tierra en km
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    return R * c
+
+def hist_plot(df, column):
+    plt.figure(figsize=(4, 2))
+    sns.histplot(df[f"{column}"], bins=50, kde=True, color = "mediumaquamarine")
+    plt.title(f"`{column}`'s distribution")
+    plt.show()
+    
+def select_features(relevant_features, features, X_train, X_val, X_test):
+    feature_indices = {feature: idx for idx, feature in enumerate(features)}
+    selected_indices = [feature_indices[f] for f in relevant_features]
+
+    X_train_subset = X_train[:, selected_indices]
+    X_val_subset = X_val[:, selected_indices]
+    X_test_subset = X_test[:, selected_indices]
+    
+    return X_train_subset, X_val_subset, X_test_subset

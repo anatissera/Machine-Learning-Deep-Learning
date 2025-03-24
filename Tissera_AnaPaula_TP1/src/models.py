@@ -1,17 +1,60 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from src.preprocessing import area_units_conversion
 
 class LinearRegression:
-    def __init__(self, X_train, y_train, X_val, y_val, train_stats=None):
-        self.train_stats = train_stats  # Guardamos los stats para desnormalizar
-        self.X_train = np.hstack((np.ones((X_train.shape[0], 1)), X_train))
-        self.y_train = y_train
-        self.X_val = np.hstack((np.ones((X_val.shape[0], 1)), X_val))
-        self.y_val = y_val
+    def __init__(self, X_train, y_train, X_val, y_val, feature_names = [], already_scaled_data=False, train_stats=None, to_scale=["area"], to_standardize=["age", "rooms"]):
+        self.recieved_scaled_data = already_scaled_data
+        
+        if already_scaled_data:
+            self.train_stats = train_stats  # stats para desnormalizar
+            self.X_train = np.hstack((np.ones((X_train.shape[0], 1)), X_train))
+            self.y_train = y_train
+            self.X_val = np.hstack((np.ones((X_val.shape[0], 1)), X_val))
+            self.y_val = y_val
+
+            
+        else:
+            self.feature_names = feature_names
+            self.f_to_scale = to_scale
+            self.f_to_standardize = to_standardize
+        
+            self.stats = {}
+            self._compute_statistics(X_train, y_train)
+            
+            self.X_train = self._transform(X_train)
+            self.y_train = self._scale_target(y_train)
+            self.X_val = self._transform(X_val)
+            self.y_val = self._scale_target(y_val)
+            
+            
         self.coef = None
         self.historial_perdida_train = []
         self.historial_perdida_val = []
+            
+        
+    def _compute_statistics(self, X, y):
+        self.stats = {}
+        for i, feature in enumerate(self.feature_names):
+            if feature in self.f_to_standardize:
+                self.stats[feature] = {"mean": X[:, i].mean(), "std": X[:, i].std()}
+            elif feature in self.f_to_scale:
+                self.stats[feature] = {"min": X[:, i].min(), "max": X[:, i].max()}
+        self.stats["price"] = {"min": y.min(), "max": y.max()}
+    
+    def _transform(self, X):
+        X_transformed = X.copy()
+        for i, feature in enumerate(self.feature_names):
+            if feature in self.f_to_standardize:
+                X_transformed[:, i] = (X[:, i] - self.stats[feature]["mean"]) / self.stats[feature]["std"]
+            elif feature in self.f_to_scale:
+                X_transformed[:, i] = (X[:, i] - self.stats[feature]["min"]) / (self.stats[feature]["max"] - self.stats[feature]["min"])
+        return np.hstack((np.ones((X.shape[0], 1)), X_transformed))
+    
+    def _scale_target(self, y):
+        return (y - self.stats["price"]["min"]) / (self.stats["price"]["max"] - self.stats["price"]["min"])
+    
+    def _inverse_transform_target(self, y_scaled):
+        return y_scaled * (self.stats["price"]["max"] - self.stats["price"]["min"]) + self.stats["price"]["min"]
 
     def entrenar_pseudoinversa(self):
         U, S, Vt = np.linalg.svd(self.X_train, full_matrices=False)
@@ -54,53 +97,49 @@ class LinearRegression:
                 return
 
     def predecir(self, X):
-        if X.shape[1] + 1 == self.X_train.shape[1]:
-            X = np.hstack((np.ones((X.shape[0], 1)), X))
-        predicciones = X @ self.coef
+        if self.recieved_scaled_data:
+            if X.shape[1] + 1 == self.X_train.shape[1]:
+                X = np.hstack((np.ones((X.shape[0], 1)), X))
+            predicciones = X @ self.coef
+            
+            if self.train_stats and 'price_min' in self.train_stats and 'price_max' in self.train_stats:
+                predicciones = predicciones * (self.train_stats['price_max'] - self.train_stats['price_min']) + self.train_stats['price_min']
+            
+            return predicciones
         
-        # if self.train_stats and 'price_min' in self.train_stats and 'price_max' in self.train_stats:
-        predicciones = predicciones * (self.train_stats['price_max'] - self.train_stats['price_min']) + self.train_stats['price_min']
-        
-        return predicciones
-
-    def evaluar(self, X_test, y_test):
+        else:
+            X_transformed = self._transform(X)
+            predicciones_scaled = X_transformed @ self.coef
+            return self._inverse_transform_target(predicciones_scaled)
+    
+    def evaluar(self, X_test, y_test, set='test'):	
         y_pred = self.predecir(X_test)
-        
-        # if self.train_stats and 'price_min' in self.train_stats and 'price_max' in self.train_stats:
-        #     y_test_real = y_test * (self.train_stats['price_max'] - self.train_stats['price_min']) + self.train_stats['price_min']
-        # else:
-        #     y_test_real = y_test
-
         mse = np.mean((y_pred - y_test) ** 2)
-        print(f"Error cuadrático medio (MSE) en test: {mse:.4f}")
+        print(f"Error cuadrático medio (MSE) en {set}: {mse:.4f}")
         return mse
-
+            
     def graficar_regresion_pseudoinversa(self, X, y, nombres):
         if X.shape[1] == 1:
-            plt.scatter(X, y, color='blue', label='Datos reales')
-
+            plt.scatter(X, y, color='blue', label='Real data')
             X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
             y_pred = self.predecir(X_line)
-            
-            plt.plot(X_line, y_pred, color='green', label='Pseudoinversa')
+            plt.plot(X_line, y_pred, color='green', label='Pseudo-inverse')
             plt.xlabel(nombres[0])
-            plt.ylabel('Price real')
+            plt.ylabel('Target price')
             plt.legend()
-            plt.title('Regresión Lineal - Pseudoinversa')
+            plt.title('Linear Regression - Pseudo-inverse')
             plt.show()
-
+    
     def graficar_regresion_descenso_gradiente(self, X, y, nombres):
         if X.shape[1] == 1:
-            plt.scatter(X, y, color='blue', label='Datos reales')
-
+            plt.scatter(X, y, color='blue', label='Real data')
             X_line = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
             y_pred = self.predecir(X_line)
-            
-            plt.plot(X_line, y_pred, color='red', label='Gradiente')
+            plt.plot(X_line, y_pred, color='red', label='Gradient Descent')
             plt.xlabel(nombres[0])
-            plt.ylabel('Price real')
+            plt.ylabel('Target price')
             plt.legend()
-            plt.title('Regresión Lineal - Gradiente')
+            plt.title('Linear Regression - Gradient Descent')
             plt.show()
 
     def graficar_perdida(self):
