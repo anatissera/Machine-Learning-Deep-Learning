@@ -1,7 +1,6 @@
-from funciones_auxiliares import pca_with_svd
 import numpy as np
 import pandas as pd
-
+from src.utils import pca_with_svd
 
 def pca_latlon(df):
     df['lat_sin'] = np.sin(df['lat'])
@@ -64,9 +63,8 @@ def assign_to_cluster(point, centroids):
 
 def distance_to_centroid(df, lat_lon, centroids_dict):
     return np.array([haversine(*lat_lon[i], *centroids_dict[df[i]]) for i in range(len(lat_lon))])
-    
 
-# Función para generar nuevas features elevando las existentes a distintas potencias
+    
 def generate_power_features(df, num_features=300, max_power=12, seed=42):
     np.random.seed(seed)
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()

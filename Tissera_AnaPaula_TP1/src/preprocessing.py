@@ -1,7 +1,4 @@
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 def area_units_conversion(df):
     converted_df = df.copy()
@@ -45,16 +42,6 @@ def scale_df(df, stats, is_test_set=False):
     if not is_test_set:
         if 'price' in df_scaled.columns:
             df_scaled['price'] = (df_scaled['price'] - stats['price_min']) / (stats['price_max'] - stats['price_min'])
-
-    # df_scaled['area'] = np.log(df_scaled['area'] + 1)
-    
-    # if 'price' in df_scaled.columns:
-    #     df_scaled['price'] = np.log(df_scaled['price'] + 1)
-
-    # df_scaled['area'] = (df_scaled['area'] - stats['area_min']) / (stats['area_max'] - stats['area_min'])
-    
-
-    # Las variables binarias quedan igual (has_pool, is_house)
 
     return df_scaled
 

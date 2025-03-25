@@ -23,26 +23,19 @@ def missing_percentages(df):
     print(f"Valores NaN en 'rooms': {n_nan_rooms} sobre un total de {total_filas} filas ({porcentaje_nan_rooms:.2f}%)")
 
 def save_csv(df, nombre_archivo):
-    """Guarda un DataFrame en un archivo CSV."""
     df.to_csv(nombre_archivo, index=False)
     print(f"Dataset guardado como '{nombre_archivo}'.")
 
-
 def complete_data(df, to_drop):
-    """Elimina filas con valores faltantes en las columnas especificadas."""
     return df.dropna(subset=to_drop)
 
 def normalize_given_μ_σ(X, mean, std):
-    """Normaliza X con la media y desviación estándar dadas."""
     return (X - mean) / std
 
-
 def add_bias(X):
-    """Añade una columna de unos para el término de sesgo (intercepto)."""
     return np.c_[np.ones(X.shape[0]), X]
 
 def generate_polynomial_features(X, grado=1):
-    """Genera términos polinómicos hasta el grado especificado."""
     return np.hstack([X ** g for g in range(1, grado + 1)])
 
 def load_data(path, df, features, target, is_df=False):
@@ -76,3 +69,21 @@ def select_features(relevant_features, features, X_train, X_val, X_test):
     X_test_subset = X_test[:, selected_indices]
     
     return X_train_subset, X_val_subset, X_test_subset
+
+def normalize_dataset(dataset):
+    return (dataset - np.min(dataset)) / (np.max(dataset) - np.min(dataset))
+
+def pca_with_svd(X, d):
+    A = normalize_dataset(X)
+    
+    U, S, Vt = np.linalg.svd(A, full_matrices=False)
+    V = Vt.T
+    
+    U_d = U[:, :d]
+    S_d = np.diag(S[:d])
+    VT_d = Vt[:d, :]
+    V_d = V[:, :d]
+    
+    Z = np.dot(U_d, S_d)
+    
+    return Z, U_d, S_d, VT_d

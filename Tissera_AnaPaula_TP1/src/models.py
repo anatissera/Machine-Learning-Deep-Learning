@@ -1,23 +1,26 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from src.metrics import calculate_mse, calculate_rmse, calculate_mae, calculate_r2
 
 class LinearRegression:
-    def __init__(self, X_train, y_train, X_val, y_val, feature_names = [], already_scaled_data=False, train_stats=None, to_scale=["area"], to_standardize=["age", "rooms"]):
+    def __init__(self, X_train, y_train, X_val, y_val, feature_names=[], to_scale=["area"], to_standardize=["age", "rooms"], 
+                 lambda_l1=0, lambda_l2=0, already_scaled_data=False, train_stats=None):
+        
+        self.l1 = lambda_l1 
+        self.l2 = lambda_l2
         self.recieved_scaled_data = already_scaled_data
         
         if already_scaled_data:
-            self.train_stats = train_stats  # stats para desnormalizar
+            self.train_stats = train_stats
             self.X_train = np.hstack((np.ones((X_train.shape[0], 1)), X_train))
             self.y_train = y_train
             self.X_val = np.hstack((np.ones((X_val.shape[0], 1)), X_val))
             self.y_val = y_val
-
-            
         else:
             self.feature_names = feature_names
             self.f_to_scale = to_scale
             self.f_to_standardize = to_standardize
-        
+            
             self.stats = {}
             self._compute_statistics(X_train, y_train)
             
@@ -25,8 +28,7 @@ class LinearRegression:
             self.y_train = self._scale_target(y_train)
             self.X_val = self._transform(X_val)
             self.y_val = self._scale_target(y_val)
-            
-            
+        
         self.coef = None
         self.historial_perdida_train = []
         self.historial_perdida_val = []
@@ -57,12 +59,14 @@ class LinearRegression:
         return y_scaled * (self.stats["price"]["max"] - self.stats["price"]["min"]) + self.stats["price"]["min"]
 
     def entrenar_pseudoinversa(self):
-        U, S, Vt = np.linalg.svd(self.X_train, full_matrices=False)
-        tol = 1e-5  
-        S_inv = np.diag([1/s if s > tol else 0 for s in S])
-        self.coef = Vt.T @ S_inv @ U.T @ self.y_train
+        n = self.X_train.shape[1]
+        lambda_identity = self.l2 * np.eye(n)
+        lambda_identity[0, 0] = 0  # No regularizar el término de sesgo (bias)
+       
+        self.coef = np.linalg.inv(self.X_train.T @ self.X_train + lambda_identity) @ self.X_train.T @ self.y_train
 
-    def entrenar_descenso_gradiente(self, lr=0.01, epochs=1000, early_stopping=True, tol=1e-5, paciencia=10):
+
+    def entrenar_descenso_gradiente(self, lr=0.01, epochs=1000, to_print = True, early_stopping=True, tol=1e-5, paciencia=10):
         m, n = self.X_train.shape
         self.coef = np.zeros(n)
         self.historial_perdida_train = []
@@ -74,6 +78,13 @@ class LinearRegression:
             predicciones_train = self.X_train @ self.coef
             error_train = predicciones_train - self.y_train
             gradiente = (1 / m) * (self.X_train.T @ error_train)
+
+            if self.l2 > 0:
+                gradiente[1:] += self.l2 * self.coef[1:]
+                
+            if self.l1 > 0:
+                gradiente[1:] += self.l1 * np.sign(self.coef[1:]) / (1 + self.l2)
+
             self.coef -= lr * gradiente
             
             perdida_train = np.mean(error_train ** 2)
@@ -89,12 +100,14 @@ class LinearRegression:
                 else:
                     paciencia_contador += 1
                     if paciencia_contador >= paciencia:
-                        print(f"Early stopping en epoch {epoch+1}")
+                        if to_print:
+                            print(f"Early stopping en epoch {epoch+1}")
                         break
 
             if np.isnan(self.coef).any():
                 print("Error: Coeficientes nan detectados, reducir la tasa de aprendizaje.")
                 return
+
 
     def predecir(self, X):
         if self.recieved_scaled_data:
@@ -112,11 +125,29 @@ class LinearRegression:
             predicciones_scaled = X_transformed @ self.coef
             return self._inverse_transform_target(predicciones_scaled)
     
-    def evaluar(self, X_test, y_test, set='test'):	
+    def evaluar(self, X_test, y_test, set='test', to_print = True, metric = "mse"):	
         y_pred = self.predecir(X_test)
-        mse = np.mean((y_pred - y_test) ** 2)
-        print(f"Error cuadrático medio (MSE) en {set}: {mse:.4f}")
-        return mse
+        if metric == "mse":
+            mse = calculate_mse(y_test, y_pred)
+            if to_print:
+                print(f"Error cuadrático medio (MSE) en {set}: {mse:.4f}")
+            return mse
+        elif metric == "rmse":
+            rmse = calculate_rmse(y_test, y_pred)
+            if to_print:
+                print(f"Raíz del error cuadrático medio (RMSE) en {set}: {rmse:.4f}")
+            return rmse
+        elif metric == "mae":
+            mae = calculate_mae(y_test, y_pred)
+            if to_print:
+                print(f"Error absoluto medio (MAE) en {set}: {mae:.4f}")
+            return mae
+        elif metric == 'R2':
+            r2 = calculate_r2(y_test, y_pred)
+            if to_print:
+                print(f"Coeficiente de determinación R^2 en {set}: {r2:.4f}")
+            return r2
+
             
     def graficar_regresion_pseudoinversa(self, X, y, nombres):
         if X.shape[1] == 1:
@@ -146,19 +177,20 @@ class LinearRegression:
         if self.historial_perdida_train and self.historial_perdida_val:
             plt.plot(self.historial_perdida_train, label='Train')
             plt.plot(self.historial_perdida_val, label='Validation')
-            plt.xlabel('Épocas')
-            plt.ylabel('Error Cuadrático Medio (MSE)')
-            plt.title('Pérdida durante el entrenamiento')
+            plt.xlabel('Epochs')
+            plt.ylabel('Medium Squared Error (MSE)')
+            plt.title('Loss during training')
             plt.legend()
             plt.show()
         else:
             print("No hay datos de entrenamiento con descenso por gradiente.")
 
 
+
+# modelo para estimar rooms
 from src.preprocessing import one_hot_encoding, softmax
 from src.data_splitting import divide_train_test
-from src.utils import complete_data, normalize_given_μ_σ
-
+from src.utils import complete_data
 
 def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1, standardize_cols=None, scale_cols=None):
     """Entrena un modelo de regresión logística multinomial con normalización/escalado según corresponda."""
@@ -170,13 +202,11 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1,
     X_train, X_val = X[:val_split], X[val_split:]
     y_train, y_val = y[:val_split], y[val_split:]
 
-    # Calcular estadísticas para normalizar/escalar
     mean_train = np.mean(X_train[:, standardize_cols], axis=0) if standardize_cols else None
     std_train = np.std(X_train[:, standardize_cols], axis=0) + 1e-8 if standardize_cols else None
     min_train = np.min(X_train[:, scale_cols], axis=0) if scale_cols else None
     max_train = np.max(X_train[:, scale_cols], axis=0) if scale_cols else None
 
-    # Aplicar normalización y escalado
     if standardize_cols:
         X_train[:, standardize_cols] = (X_train[:, standardize_cols] - mean_train) / std_train
         X_val[:, standardize_cols] = (X_val[:, standardize_cols] - mean_train) / std_train
@@ -188,7 +218,6 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1,
     y_train_one_hot = one_hot_encoding(y_train, num_classes)
     y_val_one_hot = one_hot_encoding(y_val, num_classes)
 
-    # Inicializar pesos y sesgos
     W = np.random.randn(num_features, num_classes) * 0.01
     b = np.zeros((1, num_classes))
 
@@ -231,19 +260,15 @@ def multinomial_logistic(X, y, lr=0.1, epochs=30000, patience=500, val_size=0.1,
 
 
 def log_predict(X, W, b):
-    """Realiza predicciones con el modelo entrenado."""
     logits = np.dot(X, W) + b
     probs = softmax(logits)
     return np.argmax(probs, axis=1)
 
 def precision(y_real, y_pred):
-    """Calcula la precisión del modelo."""
     return np.mean(y_real == y_pred)
 
-
 def complete_missing_rooms_values(df, W, b, mean_train, std_train, min_train, max_train):
-    """Completa los valores faltantes en 'rooms' aplicando Min-Max Scaling a 'area'."""
-    
+   
     df_faltantes = df[df['rooms'].isna()].copy()
     X_faltantes = df_faltantes[['area']].values
     X_faltantes = (X_faltantes - min_train) / (max_train - min_train + 1e-8)  # Min-Max Scaling
@@ -256,7 +281,6 @@ def complete_missing_rooms_values(df, W, b, mean_train, std_train, min_train, ma
 
 
 def predict_rooms_train_test(df):
-    """Entrena el modelo dividiendo en train/test y ajustando correctamente el escalado de 'area'."""
     
     datos = complete_data(df, ['rooms'])
     X = datos[['area']].values
@@ -280,8 +304,7 @@ def predict_rooms_train_test(df):
 
 
 def predict_rooms_no_split(df):
-    """Entrena el modelo sin división de datos, ajustando el escalado de 'area'."""
-    
+ 
     datos = complete_data(df, ['rooms'])
     X = datos[['area']].values
     y = datos['rooms'].values.astype(int)
@@ -295,15 +318,13 @@ def predict_rooms_no_split(df):
     return W, b, mean_train, std_train, min_train, max_train
 
 
-
+# modelo para estimar age
 from src.data_splitting import train_val_test_split
 from src.utils import generate_polynomial_features, add_bias
 from src.metrics import calculate_rmse
 
-# area y price hay que min max scaling, no estandarización, tengo que arreglar eso
-
 def normalize_or_scale(X, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols):
-    """Aplica normalización o escalado según la columna."""
+
     X_transformed = X.copy()
     if standardize_cols:
         X_transformed[:, standardize_cols] = (X[:, standardize_cols] - mean_train) / std_train
@@ -312,7 +333,7 @@ def normalize_or_scale(X, mean_train, std_train, min_train, max_train, standardi
     return X_transformed
 
 def train_regression_for_age(df_train, features, standardize_cols, scale_cols, grado=1):
-    """Entrena regresión polinómica en train y devuelve parámetros y estadísticas."""
+
     X_train = generate_polynomial_features(df_train[features].values, grado)
     
     mean_train = np.mean(X_train[:, standardize_cols], axis=0)
@@ -328,14 +349,14 @@ def train_regression_for_age(df_train, features, standardize_cols, scale_cols, g
     return theta, mean_train, std_train, min_train, max_train
 
 def reg_predict_age(X, theta, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols, grado=1):
-    """Predice valores de 'age' normalizando/escalando con estadísticas de train."""
+  
     X_poly = generate_polynomial_features(X, grado)
     X_poly = normalize_or_scale(X_poly, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols)
     X_poly = add_bias(X_poly)
     return X_poly @ theta
 
 def evaluate_reg_model_age(df, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):
-    """Evalúa el modelo calculando el RMSE en un dataset dado."""
+  
     X = generate_polynomial_features(df[features].values, grado)
     X = normalize_or_scale(X, mean_train, std_train, min_train, max_train, standardize_cols, scale_cols)
     X = add_bias(X)
@@ -343,7 +364,7 @@ def evaluate_reg_model_age(df, theta, mean_train, std_train, min_train, max_trai
     return calculate_rmse(df['age'].values, y_pred)
 
 def complete_missing_age_values(df, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado=1):
-    """Completa valores faltantes en 'age' usando el modelo entrenado."""
+  
     mask_missing = df['age'].isna()
     if mask_missing.sum() == 0:
         print("No hay valores faltantes en 'age'.")
@@ -356,7 +377,7 @@ def complete_missing_age_values(df, theta, mean_train, std_train, min_train, max
     return df
 
 def evaluate_and_impute(df, features, standardize_cols, scale_cols, grado=1):
-    """Entrena el modelo, lo evalúa y luego imputa valores faltantes."""
+   
     df_train, df_val, df_test = train_val_test_split(df)
     
     theta, mean_train, std_train, min_train, max_train = train_regression_for_age(df_train, features, standardize_cols, scale_cols, grado)
@@ -365,8 +386,72 @@ def evaluate_and_impute(df, features, standardize_cols, scale_cols, grado=1):
     print(f"Validation RMSE: {evaluate_reg_model_age(df_val, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):.4f}")
     print(f"Test RMSE: {evaluate_reg_model_age(df_test, theta, mean_train, std_train, min_train, max_train, features, standardize_cols, scale_cols, grado):.4f}")
     
-    # Entrenar con todos los datos completos antes de imputar
     theta_full, mean_full, std_full, min_full, max_full = train_regression_for_age(df.dropna(subset=['age']), features, standardize_cols, scale_cols, grado)
     df = complete_missing_age_values(df, theta_full, mean_full, std_full, min_full, max_full, features, standardize_cols, scale_cols, grado)
     
     return df
+
+# cross validation
+
+def cross_validate(X_train, y_train, X_val, y_val, X_test, y_test, feature_names, to_scale, to_standarize, k=5, lambdas=np.logspace(-2, 2, 20), metric='mse', L2=True, training_method='pinv'):
+    if lambdas is None or np.size(lambdas) == 0:
+        raise ValueError("La lista de lambdas está vacía. Debes proporcionar valores.")
+
+    n = X_train.shape[0]
+
+    if k > n:
+        raise ValueError(f"El número de folds (k={k}) no puede ser mayor que el número de muestras ({n}).")
+
+    fold_size = n // k
+    best_lambda = None
+    best_score = float('inf')
+    global_scores = []
+    
+    for lambda_ in lambdas:
+        scores = []
+        
+        for i in range(k):
+            X_ho = X_train[i * fold_size: (i + 1) * fold_size]  # Holdout (validación interna)
+            y_ho = y_train[i * fold_size: (i + 1) * fold_size]
+            X_tr = np.vstack((X_train[:i * fold_size], X_train[(i + 1) * fold_size:]))  # Train interno
+            y_tr = np.hstack((y_train[:i * fold_size], y_train[(i + 1) * fold_size:]))
+
+            lambda_l1 = lambda_ if not L2 else 0
+            lambda_l2 = lambda_ if L2 else 0
+            
+            model = LinearRegression(X_tr, y_tr, X_ho, y_ho, 
+                                     feature_names, to_scale, to_standarize, 
+                                     lambda_l1=lambda_l1, lambda_l2=lambda_l2)
+            
+            if training_method == "gd":
+                model.entrenar_descenso_gradiente(lr=0.01, epochs=5000, to_print=False)
+            elif training_method == "pinv":
+                model.entrenar_pseudoinversa()
+            else:
+                raise ValueError("Método de entrenamiento no válido. Usa 'pinv' o 'gd'.")
+
+            mse = model.evaluar(X_ho, y_ho, set="validation", to_print=False)
+            scores.append(mse)
+
+        mean_score = np.mean(scores)
+        global_scores.append(mean_score)
+        
+        if mean_score < best_score:
+            best_score = mean_score
+            best_lambda = lambda_
+    
+    final_model = LinearRegression(X_train, y_train, X_val, y_val, 
+                                   feature_names, to_scale, to_standarize, 
+                                   lambda_l1=best_lambda if not L2 else 0, 
+                                   lambda_l2=best_lambda if L2 else 0)
+    
+    if training_method == "gd":
+        final_model.entrenar_descenso_gradiente(lr=0.001, epochs=5000, to_print=False)
+    elif training_method == "pinv":
+        final_model.entrenar_pseudoinversa()
+
+    print(f"\nMejor lambda encontrado: {best_lambda:.4f}")
+    final_model.evaluar(X_val, y_val, set="validación final")
+    final_model.evaluar(X_test, y_test, set="test")
+    
+    return best_lambda, global_scores

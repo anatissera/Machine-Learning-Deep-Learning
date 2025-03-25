@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 def split_and_save_train_val(df, train_path, val_path, train_ratio=0.8, seed=42):
     np.random.seed(seed)
