@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class LogisticRegression:
-    def __init__(self, learning_rate=0.01, iterations=1000, regularization_strength=0.0, multiclass_strategy='binary', reweight_cost=False, plot_loss=False):
+    def __init__(self, learning_rate=0.01, iterations=1000, l2=0.0, multiclass_strategy='binary', reweight_cost=False, plot_loss=False):
         self.lr = learning_rate
         self.epochs = iterations
-        self.l2_penalty = regularization_strength
+        self.l2_penalty = l2
         self.strategy = multiclass_strategy
         self.use_class_weights = reweight_cost
         self.plot_loss = plot_loss

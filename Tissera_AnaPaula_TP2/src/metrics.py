@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+from IPython.display import display, Markdown
 
 EPSILON = 1e-15
 
@@ -141,13 +143,17 @@ def plot_pr_curve(y_true, y_scores, label=None, show=True):
     return auc_val
 
 
-def report_metrics(y_true, y_scores, threshold=0.5):
+
+def report_metrics(y_true, y_scores, dataset_name, set_type, threshold=0.5):
     """
-    Reporta todas las métricas de evaluación para un clasificador binario.
-    
+    Reporta todas las métricas de evaluación para un clasificador binario,
+    mostrando los resultados en formato de tabla markdown.
+
     Parámetros:
         y_true (np.array): Etiquetas verdaderas (0 o 1).
         y_scores (np.array): Puntajes predichos (probabilidades o scores continuos).
+        dataset_name (str): Nombre del dataset (e.g., 'Diagnosis').
+        set_type (str): Tipo de set (e.g., 'Train', 'Val', 'Test').
         threshold (float): Umbral para convertir scores en etiquetas predichas (default: 0.5).
     """
     # Convertir probabilidades a etiquetas
@@ -161,15 +167,14 @@ def report_metrics(y_true, y_scores, threshold=0.5):
     auc_roc = plot_roc_curve(y_true, y_scores, show=False)
     auc_pr = plot_pr_curve(y_true, y_scores, show=False)
 
-    # Reporte numérico
-    print("Métricas de Evaluación:")
-    print(f"Accuracy     : {acc:.4f}")
-    print(f"Precision    : {prec:.4f}")
-    print(f"Recall       : {rec:.4f}")
-    print(f"F1 Score     : {f1:.4f}")
-    print(f"AUC-ROC      : {auc_roc:.4f}")
-    print(f"AUC-PR       : {auc_pr:.4f}")
-    print()
+    # Crear DataFrame con métricas
+    metrics_df = pd.DataFrame({
+        "Métrica": ["Accuracy", "Precision", "Recall", "F1 Score", "AUC-ROC", "AUC-PR"],
+        "Valor": [acc, prec, rec, f1, auc_roc, auc_pr]
+    })
+
+    markdown_table = metrics_df.to_markdown(index=False, floatfmt=".4f")
+    display(Markdown(f"### Métricas de Evaluación para el conjunto de **{set_type}** del set **{dataset_name}**\n" + markdown_table))
 
     # Gráficos
     plot_conf_matrix(y_true, y_pred)
