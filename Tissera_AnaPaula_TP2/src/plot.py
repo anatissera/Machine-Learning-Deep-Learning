@@ -23,7 +23,7 @@ def plot_features_with_correlation(df, dataset_name, target_col, features=None, 
         ax = axes[row][col] if n_rows > 1 else axes[col]
 
         if pd.api.types.is_numeric_dtype(df[feature]):
-            sns.histplot(df[feature], kde=True, ax=ax, color="cornflowerblue")
+            sns.histplot(df[feature], kde=True, ax=ax, color="mediumslateblue")
         else:
             sns.countplot(x=df[feature], hue=df[feature], ax=ax, palette="Set2", legend=False)
             ax.tick_params(axis='x', rotation=45)

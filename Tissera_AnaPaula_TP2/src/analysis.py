@@ -12,6 +12,16 @@ def missing_values(df, dataset_name):
         table_md += f"| {col} | {count} |\n"
 
     display(Markdown(table_md))
+    
+def duplicated_rows(df, dataset_name):
+    num_duplicates = df.duplicated().sum()
+
+    table_md = f"### Filas duplicadas en el **{dataset_name}** Set\n\n"
+    table_md += "| Total de filas | Filas duplicadas |\n"
+    table_md += "|----------------|------------------|\n"
+    table_md += f"| {len(df)} | {num_duplicates} |\n"
+
+    display(Markdown(table_md))
 
 def describe_feature_ranges(datasets, dataset_names=None, cat_threshold=10):
     combined = pd.concat(datasets, axis=0, ignore_index=True)
@@ -74,3 +84,17 @@ def detect_outliers(df, true_intervals):
     display(Markdown("### Cantidad de outliers por feature:\n" + markdown_table))
 
     return outliers
+
+def class_balance(df, target_column, dataset_name):
+    class_counts = df[target_column].value_counts()
+    total = len(df)
+    
+    table_md = f"### Distribución/Desbalanceo de clases en el **{dataset_name}** Set (columna: `{target_column}`)\n\n"
+    table_md += "| Clase | Frecuencia | Porcentaje |\n"
+    table_md += "|--------|------------|------------|\n"
+
+    for class_value, count in class_counts.items():
+        percent = (count / total) * 100
+        table_md += f"| {class_value} | {count} | {percent:.2f}% |\n"
+
+    display(Markdown(table_md))
