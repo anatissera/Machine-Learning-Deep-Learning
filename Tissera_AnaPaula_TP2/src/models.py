@@ -91,7 +91,30 @@ class LogisticRegression:
                 loss = self._multiclass_loss(y_encoded, probs)
                 self.loss_history.append(loss)
 
-    def fit(self, X, y):
+    # def fit(self, X, y):
+    #     X = np.asarray(X, dtype=np.float64)
+    #     y = np.asarray(y, dtype=np.float64)
+    #     self.labels = np.unique(y)
+    #     n_samples, n_features = X.shape
+
+    #     if self.strategy == 'binary':
+    #         self._initialize_parameters(n_features)
+    #         sample_weights = self._compute_class_weights(y) if self.use_class_weights else np.ones_like(y)
+    #         self._update_parameters_binary(X, y, sample_weights)
+
+    #     elif self.strategy == 'multinomial':
+    #         n_classes = len(self.labels)
+    #         self._initialize_parameters(n_features, n_classes)
+    #         y_one_hot = self._one_hot_encode(y)
+    #         self._update_parameters_multiclass(X, y_one_hot)
+
+    #     else:
+    #         raise ValueError("La estrategia debe ser 'binary' o 'multinomial'.")
+
+    #     if self.plot_loss:
+    #         self._plot_training_loss()
+    
+    def fit(self, X, y, sample_weights=None):
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64)
         self.labels = np.unique(y)
@@ -99,25 +122,31 @@ class LogisticRegression:
 
         if self.strategy == 'binary':
             self._initialize_parameters(n_features)
-            sample_weights = self._compute_class_weights(y) if self.use_class_weights else np.ones_like(y)
-            self._update_parameters_binary(X, y, sample_weights)
+            # Si se especifican sample_weights, usarlos. Si no, calcularlos o usar 1s.
+            if sample_weights is not None:
+                weights = sample_weights
+            elif self.use_class_weights:
+                weights = self._compute_class_weights(y)
+            else:
+                weights = np.ones_like(y)
+            self._update_parameters_binary(X, y, weights)
 
         elif self.strategy == 'multinomial':
             n_classes = len(self.labels)
             self._initialize_parameters(n_features, n_classes)
             y_one_hot = self._one_hot_encode(y)
             self._update_parameters_multiclass(X, y_one_hot)
-
         else:
             raise ValueError("La estrategia debe ser 'binary' o 'multinomial'.")
 
         if self.plot_loss:
             self._plot_training_loss()
 
+
     def _plot_training_loss(self):
         # Graficar la evolución de la función de pérdida
         plt.figure(figsize=(8, 5))
-        plt.plot(self.loss_history, label='Loss')
+        plt.plot(self.loss_history, label='Loss', c="cadetblue")
         plt.title("Evolución de la pérdida durante el entrenamiento")
         plt.xlabel("Época")
         plt.ylabel("Loss")

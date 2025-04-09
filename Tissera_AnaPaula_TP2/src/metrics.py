@@ -92,7 +92,7 @@ def plot_conf_matrix(y_true, y_pred, labels=["Negative", "Positive"], title="Con
     conf_mat = conf_matrix(y_true, y_pred)
 
     fig, ax = plt.subplots()
-    matrix_plot = ax.imshow(conf_mat, cmap="BuGn")
+    matrix_plot = ax.imshow(conf_mat, cmap="summer")
 
     ax.set_xticks([0, 1])
     ax.set_yticks([0, 1])
@@ -114,7 +114,7 @@ def plot_roc_curve(y_true, y_scores, label=None, show=True):
     fpr_vals, tpr_vals = roc_curve(y_true, y_scores)
     auc_val = auc(fpr_vals, tpr_vals)
 
-    plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}")
+    plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}") # c= "mediumaquamarine"
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
@@ -130,7 +130,7 @@ def plot_pr_curve(y_true, y_scores, label=None, show=True):
     rec_vals, prec_vals = pr_curve(y_true, y_scores)
     auc_val = auc(rec_vals[::-1], prec_vals[::-1])
 
-    plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}")
+    plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}") # c="palevioletred"
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.title("Precision-Recall Curve")

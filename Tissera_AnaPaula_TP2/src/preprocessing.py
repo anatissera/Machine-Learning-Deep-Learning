@@ -42,6 +42,20 @@ def normalize_dataframe(df, is_training=True, stats=None, target_col='diagnosis'
 
     return df_copy, stats
 
+def calculate_stats_dict(df):
+    stats = {}
+    for column in df.columns:
+        if df[column].dtype == 'object':
+            stats[column] = {
+                'mode': df[column].mode()[0]
+            }
+        else:
+            stats[column] = {
+                'mean': df[column].mean(),
+                'std': df[column].std()
+            }
+    return stats
+
 def one_hot_encode_column(df, column, corrections=None, drop_first=False):
     """
     Aplica one-hot encoding a una única columna, corrigiendo valores y devolviendo 0s y 1s.
