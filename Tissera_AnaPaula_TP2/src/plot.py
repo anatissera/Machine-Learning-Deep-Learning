@@ -98,3 +98,55 @@ def plot_correlations_with_target(df, dataset_name, target_col, plot=True, color
     
     else:
         return sorted_correlations
+    
+    
+# def plot_pairplot(df, target_col):
+#     """
+#     Genera un gráfico de pares (pair plot) para visualizar las relaciones entre columnas numéricas.
+
+#     Parameters:
+#     df (pd.DataFrame): El DataFrame de entrada.
+#     target_col (str): El nombre de la columna objetivo para el color del gráfico.
+
+#     Returns:
+#     None
+#     """
+
+#     numeric_df = df.select_dtypes(include=['number'])
+    
+#     if numeric_df.shape[1] < 2:
+#         print("No hay suficientes columnas numéricas para crear un pair plot.")
+#         return
+
+#     # sns.pairplot(numeric_df, diag_kind='kde', hue=target_col)
+#     custom_colors = ["palevioletred", "lightseagreen"]  # Rojo y azul
+#     sns.pairplot(numeric_df.join(df[target_col]), diag_kind='kde', hue=target_col, palette=custom_colors)
+
+#     plt.show()
+    
+    
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+
+def plot_pairplot(df, target_col, palette=["palevioletred", "cadetblue"]):
+    """
+    Genera un gráfico de pares (pair plot) para visualizar las relaciones entre columnas numéricas,
+    excluyendo todas las categóricas excepto la columna objetivo, que se usa para colorear.
+
+    Parameters:
+    df (pd.DataFrame): El DataFrame de entrada.
+    target_col (str): El nombre de la columna objetivo para el color del gráfico.
+    palette (list or dict, optional): Lista o diccionario de colores personalizados.
+
+    Returns:
+    None
+    """
+
+    numeric_df = df.select_dtypes(include=['number'])
+
+    if numeric_df.shape[1] < 2:
+        print("No hay suficientes columnas numéricas para crear un pair plot.")
+        return
+
+    sns.pairplot(numeric_df, diag_kind='kde', hue=target_col, palette=palette)
+    plt.show()

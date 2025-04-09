@@ -92,7 +92,7 @@ def plot_conf_matrix(y_true, y_pred, labels=["Negative", "Positive"], title="Con
     conf_mat = conf_matrix(y_true, y_pred)
 
     fig, ax = plt.subplots()
-    matrix_plot = ax.imshow(conf_mat, cmap="summer")
+    matrix_plot = ax.imshow(conf_mat, cmap="RdPu")
 
     ax.set_xticks([0, 1])
     ax.set_yticks([0, 1])
@@ -110,41 +110,49 @@ def plot_conf_matrix(y_true, y_pred, labels=["Negative", "Positive"], title="Con
     plt.tight_layout()
     plt.show()
     
-def plot_roc_curve(y_true, y_scores, label=None, show=True):
+def plot_roc_curve(y_true, y_scores, label=None, show=True, plot_color=None):
     fpr_vals, tpr_vals = roc_curve(y_true, y_scores)
     auc_val = auc(fpr_vals, tpr_vals)
 
-    plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}") # c= "mediumaquamarine"
+
+    if plot_color:
+        plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}", color=plot_color)
+    else:
+        plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}") 
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
     plt.grid(True)
     plt.legend()
-
+    
     if show:
         plt.show()
 
     return auc_val
 
-def plot_pr_curve(y_true, y_scores, label=None, show=True):
+
+def plot_pr_curve(y_true, y_scores, label=None, show=True, plot_color=None):
     rec_vals, prec_vals = pr_curve(y_true, y_scores)
     auc_val = auc(rec_vals[::-1], prec_vals[::-1])
 
-    plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}") # c="palevioletred"
+    if plot_color:
+        plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}", color=plot_color) 
+    else:
+        plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.title("Precision-Recall Curve")
     plt.grid(True)
     plt.legend()
-
+    
+    
     if show:
         plt.show()
 
     return auc_val
 
 
-
-def report_metrics(y_true, y_scores, dataset_name, set_type, threshold=0.5):
+def report_metrics(y_true, y_scores, dataset_name, set_type, threshold=0.5, roc_color=None, pr_color=None):
     """
     Reporta todas las métricas de evaluación para un clasificador binario,
     mostrando los resultados en formato de tabla markdown.
@@ -177,6 +185,7 @@ def report_metrics(y_true, y_scores, dataset_name, set_type, threshold=0.5):
     display(Markdown(f"### Métricas de Evaluación para el conjunto de **{set_type}** del set **{dataset_name}**\n" + markdown_table))
 
     # Gráficos
+    plt.close()
     plot_conf_matrix(y_true, y_pred)
-    plot_roc_curve(y_true, y_scores)
-    plot_pr_curve(y_true, y_scores)
+    plot_roc_curve(y_true, y_scores, plot_color=roc_color)
+    plot_pr_curve(y_true, y_scores, plot_color=pr_color)

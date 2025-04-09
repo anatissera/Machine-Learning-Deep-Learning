@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
 def normalize_dataframe(df, is_training=True, stats=None, target_col='diagnosis'):
     """
     Standardizes numerical features by subtracting the mean and dividing by the standard deviation.
@@ -98,7 +102,9 @@ def binary_encode_column(df, column, mapping):
     df_copy = df.copy()
 
     # Reemplazar y luego convertir a tipo int de forma explícita
-    df_copy[column] = df_copy[column].replace(mapping)
+    # df_copy[column] = df_copy[column].replace(mapping)
+    df_copy[column] = df_copy[column].replace(mapping).infer_objects(copy=False) # por el warning
+
     
     if df_copy[column].isnull().any():
         raise ValueError(f"Valores no reconocidos en columna '{column}' después de aplicar el mapeo: {df_copy[column].unique()}")
