@@ -5,7 +5,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def normalize_dataframe(df, is_training=True, stats=None, target_col='diagnosis'):
+def normalize_dataframe(df, train=True, stats_dict=None, target_col='diagnosis'):
     """
     Standardizes numerical features by subtracting the mean and dividing by the standard deviation.
     Saves the mean and std in a dictionary for consistent transformation during validation.
@@ -20,8 +20,8 @@ def normalize_dataframe(df, is_training=True, stats=None, target_col='diagnosis'
     - pd.DataFrame: DataFrame with normalized numeric features.
     - dict: Dictionary containing the mean and std of each normalized feature.
     """
-    if stats is None:
-        stats = {}
+    if stats_dict is None:
+        stats_dict = {}
 
     df_copy = df.copy()
     numeric_columns = df.select_dtypes(include='number').columns
@@ -34,17 +34,17 @@ def normalize_dataframe(df, is_training=True, stats=None, target_col='diagnosis'
         if set(unique_vals).issubset({0, 1}):
             continue  # Skip binary/categorical columns
 
-        if is_training:
+        if train:
             mean_val = df[col].mean()
             std_val = df[col].std()
-            stats[col] = {'mean': mean_val, 'std': std_val}
+            stats_dict[col] = {'mean': mean_val, 'std': std_val}
         else:
-            mean_val = stats[col]['mean']
-            std_val = stats[col]['std']
+            mean_val = stats_dict[col]['mean']
+            std_val = stats_dict[col]['std']
 
         df_copy[col] = (df[col] - mean_val) / std_val
 
-    return df_copy, stats
+    return df_copy, stats_dict
 
 def calculate_stats_dict(df):
     stats = {}
@@ -115,10 +115,10 @@ def binary_encode_column(df, column, mapping):
     return df_copy
 
 
-
 def handle_missing_values(data, target_col, train=True, reference=None, intervals=None, stats_dict=None, neighbors=5):
     """
-    Maneja valores faltantes reemplazando con media/moda o imputación KNN.
+    Maneja valores faltantes reemplazando con media/moda o imputación KNN,
+    solo para columnas incluidas en intervals.
 
     Parameters:
     - data (pd.DataFrame): DataFrame de entrada.
@@ -142,6 +142,9 @@ def handle_missing_values(data, target_col, train=True, reference=None, interval
         if filled_data[col].isna().sum() == 0:
             continue
 
+        if intervals is not None and col not in intervals:
+            continue  # Solo rellenar si la columna está en intervals
+
         if train:
             if filled_data[col].dtype == object or filled_data[col].dtype == bool:
                 mode_val = filled_data[col].mode()[0]
@@ -159,7 +162,7 @@ def handle_missing_values(data, target_col, train=True, reference=None, interval
 
     result = knn_impute_missing(
         df=filled_data,
-        reference=filled_data if train else reference, # No se puede usar el dataset de test como referencia porque no hay que aprender del test
+        reference=filled_data if train else reference,
         base=clean_data,
         stats=stats_dict,
         k=neighbors,
@@ -213,6 +216,8 @@ def knn_impute_missing(df, reference, base, stats, k, target_col):
     for col in num_features:
         if col == target_col or df[col].nunique() <= 2:
             continue
+        if col not in stats:
+            continue
         mean = stats[col]['mean']
         std = stats[col].get('std', df[col].std() or 1)
         norm_df[col] = (df[col] - mean) / std
@@ -221,7 +226,7 @@ def knn_impute_missing(df, reference, base, stats, k, target_col):
     ref_values = norm_ref[num_features].to_numpy()
     df_values = norm_df[num_features].to_numpy()
 
-    for idx in tqdm(base.index[base.isnull().any(axis=1)], desc="KNN imputing"):
+    for idx in tqdm(base.index[base.isnull().any(axis=1)], desc="KNN imputing", disable=True):
         row = df_values[df.index.get_loc(idx)]
         mask = ~np.isnan(row)
 
