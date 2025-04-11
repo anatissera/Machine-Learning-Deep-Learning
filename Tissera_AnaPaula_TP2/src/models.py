@@ -39,11 +39,19 @@ class LogisticRegression:
         exp_scores = np.exp(logits)
         return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
 
+    # def _one_hot_encode(self, y):
+    #     one_hot = np.zeros((len(y), len(self.labels)))
+    #     for idx, label in enumerate(y):
+    #         one_hot[idx, int(label)] = 1
+    #     return one_hot
+    
     def _one_hot_encode(self, y):
-        one_hot = np.zeros((len(y), len(self.labels)))
-        for idx, label in enumerate(y):
-            one_hot[idx, int(label)] = 1
+        self.classes_ = np.unique(y)
+        y_index = np.array([np.where(self.classes_ == c)[0][0] for c in y])
+        one_hot = np.zeros((len(y), len(self.classes_)))
+        one_hot[np.arange(len(y)), y_index] = 1
         return one_hot
+
 
     def _binary_loss(self, y_true, y_pred, weights):
         # Función de pérdida binaria con regularización
@@ -144,53 +152,9 @@ class LogisticRegression:
         if self.strategy == 'binary':
             return (probs >= 0.5).astype(int)
         else:
-            return np.argmax(probs, axis=1)
+            # return np.argmax(probs, axis=1)
+            return self.labels[np.argmax(probs, axis=1)]
 
-# class LDA:
-#     def __init__(self):
-#         self.means_ = {}
-#         self.priors_ = {}
-#         self.covariance_ = None
-#         self.classes_ = None
-
-#     def fit(self, X, y):
-#         X = np.asarray(X, dtype=np.float64)
-#         y = np.asarray(y)
-#         self.classes_ = np.unique(y)
-#         n_features = X.shape[1]
-#         self.covariance_ = np.zeros((n_features, n_features))
-#         self.means_ = {}
-#         self.priors_ = {}
-
-#         for cls in self.classes_:
-#             X_c = X[y == cls]
-#             self.means_[cls] = np.mean(X_c, axis=0)
-#             self.priors_[cls] = X_c.shape[0] / X.shape[0]
-#             self.covariance_ += np.cov(X_c, rowvar=False) * (X_c.shape[0] - 1)
-
-#         self.covariance_ /= (X.shape[0] - len(self.classes_))  # Pooled covariance
-
-#     def _discriminant_function(self, X, mean, prior, cov_inv):
-#         return X @ cov_inv @ mean - 0.5 * mean.T @ cov_inv @ mean + np.log(prior)
-
-#     def predict(self, X):
-#         X = np.asarray(X, dtype=np.float64)
-#         cov_inv = np.linalg.inv(self.covariance_)
-#         scores = np.array([
-#             self._discriminant_function(X, self.means_[cls], self.priors_[cls], cov_inv)
-#             for cls in self.classes_
-#         ])
-#         return self.classes_[np.argmax(scores, axis=0)]
-
-#     def predict_proba(self, X):
-#         X = np.asarray(X, dtype=np.float64)
-#         cov_inv = np.linalg.inv(self.covariance_)
-#         scores = np.array([
-#             self._discriminant_function(X, self.means_[cls], self.priors_[cls], cov_inv)
-#             for cls in self.classes_
-#         ])
-#         exp_scores = np.exp(scores - np.max(scores, axis=0))  # for numerical stability
-#         return (exp_scores / np.sum(exp_scores, axis=0)).T
 
 class LDA:
     def __init__(self):

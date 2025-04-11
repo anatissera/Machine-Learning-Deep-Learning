@@ -1,24 +1,165 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from IPython.display import display, Markdown
+from IPython.display import Markdown, display
 
 EPSILON = 1e-15
 
-def conf_matrix(y_true, y_pred):
-    true_neg = np.sum((y_true == 0) & (y_pred == 0))
-    false_pos = np.sum((y_true == 0) & (y_pred == 1))
-    false_neg = np.sum((y_true == 1) & (y_pred == 0))
-    true_pos = np.sum((y_true == 1) & (y_pred == 1))
 
-    conf_mat = np.array([[true_neg, false_pos],
-                         [false_neg, true_pos]])
-    
-    return conf_mat
+# Problema 1
 
-def accuracy(y_true, y_pred):
-    correct = (y_true == y_pred).sum()
-    return correct / len(y_true)
+class BinaryMetrics:
+    def __init__(self, y_true, y_scores, threshold=0.5):
+        self.y_true = np.asarray(y_true)
+        self.y_scores = np.asarray(y_scores)
+        self.threshold = threshold
+        self.y_pred = (self.y_scores >= threshold).astype(int)
+
+    def conf_matrix(self):
+        tn = np.sum((self.y_true == 0) & (self.y_pred == 0))
+        fp = np.sum((self.y_true == 0) & (self.y_pred == 1))
+        fn = np.sum((self.y_true == 1) & (self.y_pred == 0))
+        tp = np.sum((self.y_true == 1) & (self.y_pred == 1))
+        return np.array([[tn, fp], [fn, tp]])
+
+    def accuracy(self):
+        return np.mean(self.y_true == self.y_pred)
+
+    def precision(self):
+        tp = np.sum((self.y_true == 1) & (self.y_pred == 1))
+        fp = np.sum(self.y_pred == 1) - tp
+        return tp / (tp + fp + EPSILON)
+
+    def recall(self):
+        tp = np.sum((self.y_true == 1) & (self.y_pred == 1))
+        fn = np.sum(self.y_true == 1) - tp
+        return tp / (tp + fn + EPSILON)
+
+    def f1_score(self):
+        prec = self.precision()
+        rec = self.recall()
+        return 2 * prec * rec / (prec + rec + EPSILON)
+
+    def auc(self, x, y):
+        sorted_idx = np.argsort(x)
+        return np.trapz(y[sorted_idx], x[sorted_idx])
+
+    def roc_curve(self, thresholds=None):
+        thresholds = thresholds or np.linspace(0, 1, 101)
+        tpr_list = []
+        fpr_list = []
+
+        for t in thresholds:
+            preds = (self.y_scores >= t).astype(int)
+            tp = np.sum((self.y_true == 1) & (preds == 1))
+            fp = np.sum((self.y_true == 0) & (preds == 1))
+            tn = np.sum((self.y_true == 0) & (preds == 0))
+            fn = np.sum((self.y_true == 1) & (preds == 0))
+
+            tpr = tp / (tp + fn + EPSILON)
+            fpr = fp / (fp + tn + EPSILON)
+
+            tpr_list.append(tpr)
+            fpr_list.append(fpr)
+
+        return np.array(fpr_list), np.array(tpr_list)
+
+    def pr_curve(self, thresholds=None):
+        thresholds = thresholds or np.linspace(0, 1, 101)
+        precisions = []
+        recalls = []
+
+        for t in thresholds:
+            preds = (self.y_scores >= t).astype(int)
+            tp = np.sum((self.y_true == 1) & (preds == 1))
+            fp = np.sum((self.y_true == 0) & (preds == 1))
+            fn = np.sum((self.y_true == 1) & (preds == 0))
+
+            prec = tp / (tp + fp + EPSILON)
+            rec = tp / (tp + fn + EPSILON)
+
+            precisions.append(prec)
+            recalls.append(rec)
+
+        return np.array(recalls), np.array(precisions)
+
+    def plot_conf_matrix(self, labels=["Negative", "Positive"], title="Confusion Matrix"):
+        matrix = self.conf_matrix()
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(matrix, cmap="RdPu")
+
+        ax.set_xticks([0, 1])
+        ax.set_yticks([0, 1])
+        ax.set_xticklabels(labels)
+        ax.set_yticklabels(labels)
+        ax.set_xlabel("Predicted Label")
+        ax.set_ylabel("True Label")
+        ax.set_title(title)
+
+        for i in range(2):
+            for j in range(2):
+                ax.text(j, i, str(matrix[i, j]), ha='center', va='center', color='black')
+
+        plt.colorbar(im)
+        plt.tight_layout()
+        plt.show()
+
+    def plot_roc_curve(self, label=None, show=True, plot_color=None):
+        fpr, tpr = self.roc_curve()
+        auc_val = self.auc(fpr, tpr)
+
+        if plot_color:
+            plt.plot(fpr, tpr, label=label or f"ROC AUC = {auc_val:.4f}", color=plot_color)
+        else:
+            plt.plot(fpr, tpr, label=label or f"ROC AUC = {auc_val:.4f}")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("ROC Curve")
+        plt.grid(True)
+        plt.legend()
+        if show:
+            plt.show()
+        return auc_val
+
+    def plot_pr_curve(self, label=None, show=True, plot_color=None):
+        recall_vals, precision_vals = self.pr_curve()
+        auc_val = self.auc(recall_vals[::-1], precision_vals[::-1])
+
+        if plot_color:
+            plt.plot(recall_vals, precision_vals, label=label or f"PR AUC = {auc_val:.4f}", color=plot_color)
+        else:
+            plt.plot(recall_vals, precision_vals, label=label or f"PR AUC = {auc_val:.4f}")
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.title("Precision-Recall Curve")
+        plt.grid(True)
+        plt.legend()
+        if show:
+            plt.show()
+        return auc_val
+
+    def report_metrics(self, dataset_name, set_type, roc_color=None, pr_color=None):
+        acc = self.accuracy()
+        prec = self.precision()
+        rec = self.recall()
+        f1 = self.f1_score()
+        auc_roc = self.plot_roc_curve(show=False, plot_color=roc_color)
+        auc_pr = self.plot_pr_curve(show=False, plot_color=pr_color)
+        plt.close()
+
+        metrics_df = pd.DataFrame({
+            "Métrica": ["Accuracy", "Precision", "Recall", "F1 Score", "AUC-ROC", "AUC-PR"],
+            "Valor": [acc, prec, rec, f1, auc_roc, auc_pr]
+        })
+
+        markdown_table = metrics_df.to_markdown(index=False, floatfmt=".4f")
+        display(Markdown(f"### Métricas de Evaluación para el conjunto de **{set_type}** del set **{dataset_name}**\n\n{markdown_table}"))
+
+        self.plot_conf_matrix()
+        self.plot_roc_curve(plot_color=roc_color)
+        self.plot_pr_curve(plot_color=pr_color)
 
 def precision(y_true, y_pred):
     tp = ((y_true == 1) & (y_pred == 1)).sum()
@@ -30,269 +171,190 @@ def recall(y_true, y_pred):
     real_pos = (y_true == 1).sum()
     return tp / (real_pos + EPSILON)
 
-def f1_score(y_true, y_pred):
+def f1_score_macro_binary(y_true, y_pred):
     prec = precision(y_true, y_pred)
     rec = recall(y_true, y_pred)
     return 2 * prec * rec / (prec + rec + EPSILON)
-
-def auc(x, y):
-    order = np.argsort(x)
-    x_sorted = x[order]
-    y_sorted = y[order]
-    return np.trapz(y_sorted, x_sorted)
-
-def roc_curve(y_true, y_scores, thresholds=None):
-    if thresholds is None:
-        thresholds = np.linspace(0, 1, 101)
-
-    tpr_list = []
-    fpr_list = []
-
-    for threshold in thresholds:
-        preds = (y_scores >= threshold).astype(int)
-
-        tp = ((y_true == 1) & (preds == 1)).sum()
-        fp = ((y_true == 0) & (preds == 1)).sum()
-        fn = ((y_true == 1) & (preds == 0)).sum()
-        tn = ((y_true == 0) & (preds == 0)).sum()
-
-        tpr = tp / (tp + fn + EPSILON)
-        fpr = fp / (fp + tn + EPSILON)
-
-        tpr_list.append(tpr)
-        fpr_list.append(fpr)
-
-    return np.array(fpr_list), np.array(tpr_list)
-
-def pr_curve(y_true, y_scores, thresholds=None):
-    if thresholds is None:
-        thresholds = np.linspace(0, 1, 101)
-
-    precisions = []
-    recalls = []
-
-    for threshold in thresholds:
-        preds = (y_scores >= threshold).astype(int)
-
-        tp = ((y_true == 1) & (preds == 1)).sum()
-        fp = ((y_true == 0) & (preds == 1)).sum()
-        fn = ((y_true == 1) & (preds == 0)).sum()
-
-        prec = tp / (tp + fp + EPSILON)
-        rec = tp / (tp + fn + EPSILON)
-
-        precisions.append(prec)
-        recalls.append(rec)
-
-    return np.array(recalls), np.array(precisions)
-
-
-# # gráficos
-# def plot_conf_matrix(y_true, y_pred, labels=["Negative", "Positive"], title="Confusion Matrix"):
-#     conf_mat = conf_matrix(y_true, y_pred)
-
-#     fig, ax = plt.subplots()
-#     matrix_plot = ax.imshow(conf_mat, cmap="RdPu")
-
-#     ax.set_xticks([0, 1])
-#     ax.set_yticks([0, 1])
-#     ax.set_xticklabels(labels)
-#     ax.set_yticklabels(labels)
-#     ax.set_xlabel("Predicted Label")
-#     ax.set_ylabel("True Label")
-#     ax.set_title(title)
-
-#     for row in range(2):
-#         for col in range(2):
-#             ax.text(col, row, str(conf_mat[row, col]), va="center", ha="center", color="black", fontsize=12)
-
-#     plt.colorbar(matrix_plot)
-#     plt.tight_layout()
-#     plt.show()
     
 
-def plot_conf_matrix(y_true, y_pred, class_names=None, title="Confusion Matrix"):
-    """
-    Dibuja una matriz de confusión para clasificación multiclase o binaria.
+# Problema 2
 
-    Parámetros:
-    - y_true (array): etiquetas reales
-    - y_pred (array): etiquetas predichas
-    - class_names (list, opcional): nombres de las clases
-    - title (str): título del gráfico
-    """
-    unique_labels = np.unique(np.concatenate([y_true, y_pred]))
-    n_classes = len(unique_labels)
+class MulticlassMetrics:
+    def __init__(self, y_true, y_pred, y_proba, labels=None):
+        self.y_true = np.asarray(y_true)
+        self.y_pred = np.asarray(y_pred)
+        self.y_proba = np.asarray(y_proba)
+        self.labels = labels if labels is not None else np.unique(np.concatenate([self.y_true, self.y_pred]))
 
-    if class_names is None:
-        class_names = [str(cls) for cls in unique_labels]
+    def accuracy(self):
+        return np.sum(self.y_true == self.y_pred) / len(self.y_true)
 
-    # Inicializar matriz vacía
-    matrix = np.zeros((n_classes, n_classes), dtype=int)
+    def precision(self):
+        scores = []
+        for label in self.labels:
+            pred_pos = (self.y_pred == label)
+            true_pos = (self.y_true == label)
+            tp = np.sum(pred_pos & true_pos)
+            fp = np.sum(pred_pos & ~true_pos)
+            score = tp / (tp + fp + 1e-15)
+            scores.append(score)
+        return np.mean(scores)
 
-    # Llenar la matriz contando ocurrencias
-    for i, actual in enumerate(unique_labels):
-        for j, predicted in enumerate(unique_labels):
-            matrix[i, j] = np.sum((y_true == actual) & (y_pred == predicted))
+    def recall(self):
+        scores = []
+        for label in self.labels:
+            actual = (self.y_true == label)
+            predicted = (self.y_pred == label)
+            tp = np.sum(actual & predicted)
+            fn = np.sum(actual & ~predicted)
+            score = tp / (tp + fn + 1e-15)
+            scores.append(score)
+        return np.mean(scores)
 
-    # Graficar la matriz
-    fig, ax = plt.subplots()
-    cmap = plt.cm.OrRd
-    im = ax.imshow(matrix, interpolation='nearest', cmap=cmap)
+    def f1_score(self):
+        scores = []
+        for label in self.labels:
+            actual = (self.y_true == label)
+            predicted = (self.y_pred == label)
+            tp = np.sum(actual & predicted)
+            fp = np.sum(~actual & predicted)
+            fn = np.sum(actual & ~predicted)
+            prec = tp / (tp + fp + 1e-15)
+            rec = tp / (tp + fn + 1e-15)
+            f1 = 2 * prec * rec / (prec + rec + 1e-15)
+            scores.append(f1)
+        return np.mean(scores)
 
-    ax.set_xticks(np.arange(n_classes))
-    ax.set_yticks(np.arange(n_classes))
-    ax.set_xticklabels(class_names)
-    ax.set_yticklabels(class_names)
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    ax.set_title(title)
+    def _roc_curve(self, binary_true, scores, thresholds=None):
+        thresholds = thresholds or np.linspace(0, 1, 101)
+        tpr, fpr = [], []
 
-    # Anotar valores en las celdas
-    for i in range(n_classes):
-        for j in range(n_classes):
-            ax.text(j, i, str(matrix[i, j]),
-                    ha='center', va='center', color='black')
+        for t in thresholds:
+            pred = (scores >= t).astype(int)
+            tp = np.sum((binary_true == 1) & (pred == 1))
+            tn = np.sum((binary_true == 0) & (pred == 0))
+            fp_val = np.sum((binary_true == 0) & (pred == 1))
+            fn = np.sum((binary_true == 1) & (pred == 0))
+            tpr.append(tp / (tp + fn + 1e-15))
+            fpr.append(fp_val / (fp_val + tn + 1e-15))
+        return np.array(fpr), np.array(tpr)
 
-    fig.colorbar(im, ax=ax)
-    plt.tight_layout()
-    plt.show()
+    def _pr_curve(self, binary_true, scores, thresholds=None):
+        thresholds = thresholds or np.linspace(0, 1, 101)
+        prec, rec = [], []
 
-    
-def plot_roc_curve(y_true, y_scores, label=None, show=True, plot_color=None):
-    fpr_vals, tpr_vals = roc_curve(y_true, y_scores)
-    auc_val = auc(fpr_vals, tpr_vals)
+        for t in thresholds:
+            pred = (scores >= t).astype(int)
+            tp = np.sum((binary_true == 1) & (pred == 1))
+            fp = np.sum((binary_true == 0) & (pred == 1))
+            fn = np.sum((binary_true == 1) & (pred == 0))
+            prec.append(tp / (tp + fp + 1e-15))
+            rec.append(tp / (tp + fn + 1e-15))
+        return np.array(rec), np.array(prec)
 
+    def _auc(self, x, y):
+        idx = np.argsort(x)
+        return np.trapz(y[idx], x[idx])
 
-    if plot_color:
-        plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}", color=plot_color)
-    else:
-        plt.plot(fpr_vals, tpr_vals, label=label or f"ROC AUC = {auc_val:.4f}") 
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.grid(True)
-    plt.legend()
-    
-    if show:
+    def plot_conf_matrix(self, title="Confusion Matrix"):
+        n = len(self.labels)
+        mat = np.zeros((n, n), dtype=int)
+        for i, actual in enumerate(self.labels):
+            for j, pred in enumerate(self.labels):
+                mat[i, j] = np.sum((self.y_true == actual) & (self.y_pred == pred))
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(mat, cmap="RdPu")
+        ax.set_xticks(np.arange(n))
+        ax.set_yticks(np.arange(n))
+        ax.set_xticklabels(self.labels)
+        ax.set_yticklabels(self.labels)
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("True")
+        ax.set_title(title)
+
+        for i in range(n):
+            for j in range(n):
+                ax.text(j, i, mat[i, j], ha='center', va='center', color='black')
+
+        plt.colorbar(im)
+        plt.tight_layout()
         plt.show()
 
-    return auc_val
+    def plot_roc_curve(self, show=True):
+        aucs = []
+        plt.figure()
+        for i, label in enumerate(self.labels):
+            binary_true = (self.y_true == label).astype(int)
+            class_scores = self.y_proba[:, i]
+            fpr, tpr = self._roc_curve(binary_true, class_scores)
+            area = self._auc(fpr, tpr)
+            aucs.append(area)
+            plt.plot(fpr, tpr, label=f"Class {label} (AUC = {area:.4f})")
 
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("Multiclass ROC Curve")
+        plt.grid(True)
+        plt.legend()
+        if show:
+            plt.show()
+        return aucs
 
-def plot_pr_curve(y_true, y_scores, label=None, show=True, plot_color=None):
-    rec_vals, prec_vals = pr_curve(y_true, y_scores)
-    auc_val = auc(rec_vals[::-1], prec_vals[::-1])
+    def plot_pr_curve(self, show=True):
+        aucs = []
+        plt.figure()
+        for i, label in enumerate(self.labels):
+            binary_true = (self.y_true == label).astype(int)
+            class_scores = self.y_proba[:, i]
+            recall_vals, precision_vals = self._pr_curve(binary_true, class_scores)
+            area = self._auc(recall_vals[::-1], precision_vals[::-1])
+            aucs.append(area)
+            plt.plot(recall_vals, precision_vals, label=f"Class {label} (AUC = {area:.4f})")
 
-    if plot_color:
-        plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}", color=plot_color) 
-    else:
-        plt.plot(rec_vals, prec_vals, label=label or f"PR AUC = {auc_val:.4f}")
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve")
-    plt.grid(True)
-    plt.legend()
-    
-    
-    if show:
-        plt.show()
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.title("Multiclass PR Curve")
+        plt.grid(True)
+        plt.legend()
+        if show:
+            plt.show()
+        return aucs
 
-    return auc_val
+    def report_metrics(self, dataset_name="Dataset", set_type="Test"):
+        acc = self.accuracy()
+        prec = self.precision()
+        rec = self.recall()
+        f1 = self.f1_score()
+        auc_roc_vals = self.plot_roc_curve(show=False)
+        plt.close()
+        auc_pr_vals = self.plot_pr_curve(show=False)
+        plt.close()
 
+        auc_roc_mean = np.mean(auc_roc_vals)
+        auc_pr_mean = np.mean(auc_pr_vals)
 
-def report_metrics(y_true, y_scores, dataset_name, set_type, threshold=0.5, roc_color=None, pr_color=None):
-    """
-    Reporta todas las métricas de evaluación para un clasificador binario,
-    mostrando los resultados en formato de tabla markdown.
+        df = pd.DataFrame({
+            "Métrica": ["Accuracy", "Precision", "Recall", "F1 Score", "AUC-ROC", "AUC-PR"],
+            "Valor": [acc, prec, rec, f1, auc_roc_mean, auc_pr_mean]
+        })
 
-    Parámetros:
-        y_true (np.array): Etiquetas verdaderas (0 o 1).
-        y_scores (np.array): Puntajes predichos (probabilidades o scores continuos).
-        dataset_name (str): Nombre del dataset (e.g., 'Diagnosis').
-        set_type (str): Tipo de set (e.g., 'Train', 'Val', 'Test').
-        threshold (float): Umbral para convertir scores en etiquetas predichas (default: 0.5).
-    """
-    # Convertir probabilidades a etiquetas
-    y_pred = (y_scores >= threshold).astype(int)
+        display(Markdown(f"### Métricas de Evaluación para el conjunto de **{set_type}** del set **{dataset_name}**\n\n" + df.to_markdown(index=False, floatfmt=".4f")))
+        self.plot_conf_matrix()
+        self.plot_roc_curve()
+        self.plot_pr_curve()
 
-    # Métricas
-    acc = accuracy(y_true, y_pred)
-    prec = precision(y_true, y_pred)
-    rec = recall(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
-    auc_roc = plot_roc_curve(y_true, y_scores, show=False)
-    auc_pr = plot_pr_curve(y_true, y_scores, show=False)
-
-    # Crear DataFrame con métricas
-    metrics_df = pd.DataFrame({
-        "Métrica": ["Accuracy", "Precision", "Recall", "F1 Score", "AUC-ROC", "AUC-PR"],
-        "Valor": [acc, prec, rec, f1, auc_roc, auc_pr]
-    })
-
-    markdown_table = metrics_df.to_markdown(index=False, floatfmt=".4f")
-    display(Markdown(f"### Métricas de Evaluación para el conjunto de **{set_type}** del set **{dataset_name}**\n" + markdown_table))
-
-    # Gráficos
-    plt.close()
-    plot_conf_matrix(y_true, y_pred)
-    plot_roc_curve(y_true, y_scores, plot_color=roc_color)
-    plot_pr_curve(y_true, y_scores, plot_color=pr_color)
-    
-    
-    
-    
-    
-    
-    
-    
-def roc_curve_multiclass(y_true, y_scores, thresholds=None):
-    """
-    Calcula los puntos de la curva ROC (TPR vs FPR) para distintos umbrales.
-    """
-    if thresholds is None:
-        thresholds = np.linspace(0.0, 1.0, num=101)
-
-    true_positive_rates = []
-    false_positive_rates = []
-
-    for thresh in thresholds:
-        preds = (y_scores >= thresh).astype(int)
-
-        TP = np.sum((y_true == 1) & (preds == 1))
-        FP = np.sum((y_true == 0) & (preds == 1))
-        FN = np.sum((y_true == 1) & (preds == 0))
-        TN = np.sum((y_true == 0) & (preds == 0))
-
-        TPR = TP / (TP + FN + 1e-15)
-        FPR = FP / (FP + TN + 1e-15)
-
-        true_positive_rates.append(TPR)
-        false_positive_rates.append(FPR)
-
-    return np.array(false_positive_rates), np.array(true_positive_rates)
-
-def pr_curve_multiclass(y_true, y_scores, thresholds=None):
-    """
-    Calcula los puntos de la curva Precisión-Recall para distintos umbrales.
-    """
-    if thresholds is None:
-        thresholds = np.linspace(0.0, 1.0, num=101)
-
-    precision_values = []
-    recall_values = []
-
-    for thresh in thresholds:
-        preds = (y_scores >= thresh).astype(int)
-
-        TP = np.sum((y_true == 1) & (preds == 1))
-        FP = np.sum((y_true == 0) & (preds == 1))
-        FN = np.sum((y_true == 1) & (preds == 0))
-
-        prec = TP / (TP + FP + 1e-15)
-        rec = TP / (TP + FN + 1e-15)
-
-        precision_values.append(prec)
-        recall_values.append(rec)
-
-    return np.array(recall_values), np.array(precision_values)
+def f1_score_macro_multiclass(y_true, y_pred):
+    labels = np.unique(np.concatenate((y_true, y_pred)))
+    f1s = []
+    for label in labels:
+        actual = (y_true == label)
+        predicted = (y_pred == label)
+        tp = np.sum(actual & predicted)
+        fp = np.sum(~actual & predicted)
+        fn = np.sum(actual & ~predicted)
+        prec = tp / (tp + fp + 1e-15)
+        rec = tp / (tp + fn + 1e-15)
+        f1 = 2 * prec * rec / (prec + rec + 1e-15)
+        f1s.append(f1)
+    return np.mean(f1s)

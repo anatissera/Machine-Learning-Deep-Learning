@@ -5,7 +5,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def normalize_dataframe(df, train=True, stats_dict=None, target_col='diagnosis'):
+def normalize_dataframe(df, target_col, train=True, stats_dict=None):
     """
     Standardizes numerical features by subtracting the mean and dividing by the standard deviation.
     Saves the mean and std in a dictionary for consistent transformation during validation.
