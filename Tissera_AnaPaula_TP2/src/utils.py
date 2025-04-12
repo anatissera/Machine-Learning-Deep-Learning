@@ -41,22 +41,31 @@ def run_grid_search(ModelClass, param_grid, X_train, y_train, X_val, y_val, metr
 
     return best_model, best_score, best_params
 
-
-def comparar_metricas(dict1, dict2, title, nombre1="Modelo 1", nombre2="Modelo 2"):
+from functools import reduce
+def compare_metrics(list_of_dicts, title, list_of_names=None):
     """
-    Compara dos diccionarios de métricas y muestra una tabla en formato Markdown en Jupyter.
+    Compara múltiples diccionarios de métricas y muestra una tabla en formato Markdown en Jupyter.
 
-    Parámetros:
-        dict1, dict2: diccionarios con claves "Métrica" y "Valor"
-        nombre1, nombre2: nombres que se usarán en la tabla para identificar cada conjunto de métricas
+    Parameters:
+    - list_of_dicts (list of dict): lista de diccionarios con claves "Métrica" y "Valor"
+    - title (str): título a mostrar encima de la tabla
+    - list_of_names (list of str, optional): lista de nombres para los modelos (por defecto "Modelo 1", "Modelo 2", etc.)
+    
+    Returns:
+    - None
     """
-    df1 = pd.DataFrame(dict1)
-    df2 = pd.DataFrame(dict2)
+    if list_of_names is None:
+        list_of_names = [f"Model {i+1}" for i in range(len(list_of_dicts))]
 
-    df_comparacion = pd.merge(df1, df2, on="Métrica", suffixes=(f" ({nombre1})", f" ({nombre2})"))
-    df_comparacion = df_comparacion.round(4)
+    dfs = []
+    for i, (d, name) in enumerate(zip(list_of_dicts, list_of_names)):
+        df = pd.DataFrame(d).copy()
+        df.rename(columns={"Valor": f"Value ({name})"}, inplace=True)
+        dfs.append(df)
+
+    comparison_df = reduce(lambda left, right: pd.merge(left, right, on="Métrica"), dfs)
+    comparison_df.rename(columns={"Métrica": "Metric"}, inplace=True)
+    comparison_df = comparison_df.round(4)
 
     display(Markdown(f"### {title}"))
-
-    tabla_md = df_comparacion.to_markdown(index=False)
-    display(Markdown(tabla_md))
+    display(Markdown(comparison_df.to_markdown(index=False)))

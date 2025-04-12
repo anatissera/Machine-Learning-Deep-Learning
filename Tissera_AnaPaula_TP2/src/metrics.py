@@ -226,7 +226,7 @@ class MulticlassMetrics:
             scores.append(f1)
         return np.mean(scores)
 
-    def _roc_curve(self, binary_true, scores, thresholds=None):
+    def roc_curve(self, binary_true, scores, thresholds=None):
         thresholds = thresholds or np.linspace(0, 1, 101)
         tpr, fpr = [], []
 
@@ -240,7 +240,7 @@ class MulticlassMetrics:
             fpr.append(fp_val / (fp_val + tn + 1e-15))
         return np.array(fpr), np.array(tpr)
 
-    def _pr_curve(self, binary_true, scores, thresholds=None):
+    def pr_curve(self, binary_true, scores, thresholds=None):
         thresholds = thresholds or np.linspace(0, 1, 101)
         prec, rec = [], []
 
@@ -253,7 +253,7 @@ class MulticlassMetrics:
             rec.append(tp / (tp + fn + 1e-15))
         return np.array(rec), np.array(prec)
 
-    def _auc(self, x, y):
+    def auc(self, x, y):
         idx = np.argsort(x)
         return np.trapz(y[idx], x[idx])
 
@@ -288,8 +288,8 @@ class MulticlassMetrics:
         for i, label in enumerate(self.labels):
             binary_true = (self.y_true == label).astype(int)
             class_scores = self.y_proba[:, i]
-            fpr, tpr = self._roc_curve(binary_true, class_scores)
-            area = self._auc(fpr, tpr)
+            fpr, tpr = self.roc_curve(binary_true, class_scores)
+            area = self.auc(fpr, tpr)
             aucs.append(area)
             plt.plot(fpr, tpr, label=f"Class {label} (AUC = {area:.4f})")
 
@@ -308,8 +308,8 @@ class MulticlassMetrics:
         for i, label in enumerate(self.labels):
             binary_true = (self.y_true == label).astype(int)
             class_scores = self.y_proba[:, i]
-            recall_vals, precision_vals = self._pr_curve(binary_true, class_scores)
-            area = self._auc(recall_vals[::-1], precision_vals[::-1])
+            recall_vals, precision_vals = self.pr_curve(binary_true, class_scores)
+            area = self.auc(recall_vals[::-1], precision_vals[::-1])
             aucs.append(area)
             plt.plot(recall_vals, precision_vals, label=f"Class {label} (AUC = {area:.4f})")
 

@@ -401,8 +401,10 @@ class RandomForest:
             Número mínimo de muestras requeridas para dividir un nodo.
         trees: list
             Lista de árboles de decisión individuales que componen el bosque.
-        classes_: array, shape (n_classes,)
+        classes: array, shape (n_classes,)
             Etiquetas únicas de las clases presentes en los datos de entrenamiento.
+        calibration_params: list
+            Pesos Platt para cada clase, si se aplica calibración.
     """
     
     def __init__(self, n_trees=10, max_depth=None, min_samples=2):
@@ -410,7 +412,8 @@ class RandomForest:
         self.max_depth = max_depth
         self.min_samples = min_samples
         self.trees = []
-        self.classes_ = None
+        self.classes = None
+        self.calibration_params = None
 
     def bootstrap_sample(self, X, y):
         n = len(X)
@@ -420,7 +423,7 @@ class RandomForest:
     def fit(self, X, y):
         X = np.array(X)
         y = np.array(y)
-        self.classes_ = np.unique(y)
+        self.classes = np.unique(y)
         self.trees = []
 
         for _ in range(self.n_estimators):
@@ -440,12 +443,38 @@ class RandomForest:
             votes.append(values[np.argmax(counts)])
 
         return np.array(votes)
+    
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+
+    def train_lr(self, scores, binary_labels, lr=0.01, epochs=1000):
+        w, b = 0.0, 0.0
+        for _ in range(epochs):
+            z = scores * w + b
+            pred = self.sigmoid(z)
+            error = pred - binary_labels
+            grad_w = np.dot(error, scores) / len(scores)
+            grad_b = np.mean(error)
+            w -= lr * grad_w
+            b -= lr * grad_b
+        return w, b
+
+    def calibrate_probs_platt(self, X_val, y_val, lr=0.01, epochs=1000):
+        """Ajusta parámetros Platt con un conjunto de validación"""
+        y_proba = self.predict_proba(X_val)
+        self.calibration_params = []  # un (w, b) por clase
+
+        for i, cls in enumerate(self.classes):
+            scores = y_proba[:, i]
+            binary_true = (y_val == cls).astype(int)
+            w, b = self.train_lr(scores, binary_true, lr=lr, epochs=epochs)
+            self.calibration_params.append((w, b))
 
     def predict_proba(self, X):
         X = np.array(X)
         n_samples = X.shape[0]
-        n_classes = len(self.classes_)
-        class_indices = {cls: idx for idx, cls in enumerate(self.classes_)}
+        n_classes = len(self.classes)
+        class_indices = {cls: idx for idx, cls in enumerate(self.classes)}
 
         proba = np.zeros((n_samples, n_classes))
 
@@ -456,4 +485,13 @@ class RandomForest:
                 proba[i, class_idx] += 1
 
         proba /= self.n_estimators
+
+        # aplicar calibración si está disponible
+        if self.calibration_params:
+            for i, (w, b) in enumerate(self.calibration_params):
+                proba[:, i] = self.sigmoid(proba[:, i] * w + b)
+
+            row_sums = proba.sum(axis=1, keepdims=True) + 1e-12
+            proba /= row_sums
+
         return proba
