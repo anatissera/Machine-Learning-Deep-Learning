@@ -159,6 +159,8 @@ class BinaryMetrics:
         self.plot_conf_matrix()
         self.plot_roc_curve(plot_color=roc_color)
         self.plot_pr_curve(plot_color=pr_color)
+        
+        return metrics_df
 
 def precision(y_true, y_pred):
     tp = ((y_true == 1) & (y_pred == 1)).sum()
@@ -342,6 +344,8 @@ class MulticlassMetrics:
         self.plot_conf_matrix()
         self.plot_roc_curve()
         self.plot_pr_curve()
+        
+        return df
 
 def f1_score_macro_multiclass(y_true, y_pred):
     labels = np.unique(np.concatenate((y_true, y_pred)))
