@@ -3,6 +3,17 @@ import numpy as np
 from IPython.display import display, Markdown
 
 def missing_values(df, dataset_name):
+    """
+    Genera y muestra una tabla en formato Markdown con la cantidad de valores faltantes por columna 
+    en un DataFrame dado.
+    
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada que será analizado para detectar valores faltantes.
+    - dataset_name (str): Nombre del conjunto de datos, utilizado para el título de la tabla.
+    
+    Returns:
+    - None
+    """
     missing = df.isna().sum().sort_values(ascending=False)
     
     table_md = f"### Valores faltantes por columna en el **{dataset_name}** Set\n\n"
@@ -14,6 +25,16 @@ def missing_values(df, dataset_name):
     display(Markdown(table_md))
     
 def duplicated_rows(df, dataset_name):
+    """
+    Genera y muestra una tabla en formato Markdown que indica la cantidad de filas duplicadas en un DataFrame.
+    
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada que será analizado.
+    - dataset_name (str): Nombre del conjunto de datos, utilizado para el título de la tabla.
+    
+    Returns:
+    - None
+    """
     num_duplicates = df.duplicated().sum()
 
     table_md = f"### Filas duplicadas en el **{dataset_name}** Set\n\n"
@@ -22,8 +43,59 @@ def duplicated_rows(df, dataset_name):
     table_md += f"| {len(df)} | {num_duplicates} |\n"
 
     display(Markdown(table_md))
+    
+from itertools import product
+def run_grid_search(ModelClass, param_grid, X_train, y_train, X_val, y_val, metric_fn):
+    """
+    Ejecuta una búsqueda de grilla para encontrar los mejores hiperparámetros de un modelo.
+
+    Parameters:
+    - ModelClass (class): Clase del modelo (no instanciado).
+    - param_grid (dict): Diccionario con listas de valores para cada hiperparámetro.
+    - X_train (pd.DataFrame o np.ndarray): Datos de entrenamiento (features).
+    - y_train (pd.Series o np.ndarray): Etiquetas de entrenamiento.
+    - X_val (pd.DataFrame o np.ndarray): Datos de validación (features).
+    - y_val (pd.Series o np.ndarray): Etiquetas de validación.
+    - metric_fn (function): Función que recibe (y_true, y_pred) y devuelve el score.
+
+    Returns:
+    - best_model (object): Mejor modelo entrenado.
+    - best_score (float): Mejor score obtenido.
+    - best_params (dict): Mejores hiperparámetros encontrados.
+    """
+    best_score = -np.inf
+    best_model = None
+    best_params = {}
+
+    keys = list(param_grid.keys())
+    for values in product(*param_grid.values()):
+        params = dict(zip(keys, values))
+        model = ModelClass(**params)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_val)
+
+        score = metric_fn(y_val, y_pred)
+
+        if score > best_score:
+            best_score = score
+            best_model = model
+            best_params = params
+
+    return best_model, best_score, best_params
 
 def describe_feature_ranges(datasets, dataset_names=None, cat_threshold=10):
+    """
+    Genera y muestra una tabla en formato Markdown con un resumen de los rangos 
+    o valores únicos de las características presentes en múltiples datasets.
+
+    Parameters:
+    - datasets (list of pd.DataFrame): Lista de DataFrames que contienen los datos a analizar.
+    - dataset_names (list of str, opcional): Nombres de los datasets para identificar las características. Si no se proporciona, se generarán nombres genéricos como "Dataset 1", "Dataset 2", etc.
+    - cat_threshold (int, opcional): Umbral para considerar una característica numérica como categórica si tiene un número de valores únicos menor o igual a este valor. Por defecto es 10.
+    
+    Returns:
+    - None
+    """
     combined = pd.concat(datasets, axis=0, ignore_index=True)
 
     if dataset_names is None:
@@ -62,12 +134,12 @@ def detect_outliers(df, true_intervals):
     Detecta outliers en un DataFrame en función de los intervalos válidos definidos
     y muestra un resumen en formato tabla Markdown.
 
-    Parámetros:
-    - df: DataFrame de pandas con los datos.
-    - true_intervals: diccionario con los intervalos válidos para cada columna.
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada.
+    - true_intervals (dict): Diccionario con los intervalos válidos para cada columna.
 
-    Retorna:
-    - DataFrame booleano con True donde hay outliers y False donde no.
+    Returns:
+    - pd.DataFrame: DataFrame booleano con True donde hay outliers y False donde no.
     """
     outliers = pd.DataFrame(False, index=df.index, columns=df.columns)
 
@@ -76,7 +148,7 @@ def detect_outliers(df, true_intervals):
             min_val, max_val = true_intervals[col]
             outliers[col] = (df[col] < min_val) | (df[col] > max_val)
 
-    # outliers por columna
+    # outliers `por columna
     outlier_counts = outliers.sum().reset_index()
     outlier_counts.columns = ['Feature', 'Cantidad de Outliers']
 
@@ -86,6 +158,18 @@ def detect_outliers(df, true_intervals):
     return outliers
 
 def class_balance(df, target_column, dataset_name):
+    """
+    Genera una tabla en formato Markdown que muestra la distribución o desbalanceo de clases 
+    en un conjunto de datos específico, basado en una columna objetivo.
+    
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada que contiene los datos.
+    - target_column (str): Nombre de la columna objetivo que contiene las clases.
+    - dataset_name (str): Nombre del conjunto de datos (por ejemplo, "Train", "Test").
+    
+    Returns:
+    - None: La función no retorna ningún valor, pero muestra la tabla en formato Markdown.
+    """
     class_counts = df[target_column].value_counts()
     total = len(df)
     

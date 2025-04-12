@@ -1,13 +1,21 @@
 import numpy as np
 import pandas as pd
-from IPython.display import display, Markdown
 
 def undersampling(df, target_col, random_state=42):
     """
     Undersampling aleatorio: se reducen muestras de la clase mayoritaria para igualar proporciones.
 
-    Retorna:
-    X, y: características y etiquetas balanceadas por undersampling
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada.
+    - target_col (str): Nombre de la columna objetivo que contiene las etiquetas de clase.
+    - random_state (int, optional): Semilla para la reproducibilidad del muestreo aleatorio. Por defecto es 42.
+    - X (pd.DataFrame): DataFrame con las características balanceadas.
+    - y (pd.Series): Serie con las etiquetas balanceadas.
+    
+    Returns:
+    - X (pd.DataFrame): Características balanceadas por undersampling.
+    - y (pd.Series): Etiquetas balanceadas por undersampling.
+    
     """
     np.random.seed(random_state)
     counts = df[target_col].value_counts()
@@ -27,8 +35,14 @@ def oversampling_duplicate_minority_class(df, target_col, random_state=42):
     """
     Oversampling por duplicación: se duplican ejemplos de la clase minoritaria.
 
-    Retorna:
-    X, y: características y etiquetas balanceadas por duplicación
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada.
+    - target_col (str): Nombre de la columna objetivo que contiene las etiquetas de clase.
+    - random_state (int, optional): Semilla para la reproducibilidad. Por defecto es 42.
+    
+    Returns:
+    - X (pd.DataFrame): Características balanceadas por duplicación.
+    - y (pd.Series): Etiquetas balanceadas por duplicación.
     """
     np.random.seed(random_state)
     counts = df[target_col].value_counts()
@@ -49,13 +63,13 @@ def basic_SMOTE(df, columna_objetivo, k=5, semilla=42):
     """
     Implementación manual de SMOTE para clasificación binaria sin usar librerías externas.
     
-    Parámetros:
+    Parameters:
     - df (pd.DataFrame): DataFrame con las características y la columna objetivo.
     - columna_objetivo (str): Nombre de la columna que contiene las clases (binaria).
     - k (int): Número de vecinos cercanos para interpolación.
     - semilla (int): Semilla para la generación aleatoria.
 
-    Retorna:
+    Returns:
     - X (pd.DataFrame): Datos con características extendidas (originales + sintéticos).
     - y (pd.Series): Etiquetas correspondientes.
     """
@@ -112,8 +126,11 @@ def cost_sensitive_weights(y):
     """
     Cálculo de pesos para cada clase según sus proporciones (π2 / π1).
 
-    Retorna:
-    sample_weights: array de pesos para cada muestra
+    Parameters:
+    - y (pd.Series): Serie de pandas que contiene las etiquetas de clase.
+    
+    Returns:
+    - np.ndarray: Array de pesos para cada muestra
     """
     class_counts = y.value_counts(normalize=True)
     pi_1 = class_counts.min()

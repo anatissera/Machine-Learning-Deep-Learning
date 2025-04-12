@@ -1,7 +1,41 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+EPSILON = 1e-15
+
+# Problema 1 y 
+
 class LogisticRegression:
+    """
+    Logistic Regression classifier.
+
+    Esta clase implementa un modelo de regresión logística con soporte para
+    clasificación binaria y multiclase. Permite la regularización L2, el ajuste
+    de pesos de clase y la visualización de la pérdida durante el entrenamiento.
+
+    Atributos:
+        lr: float
+            Tasa de aprendizaje utilizada para la optimización.
+        epochs: int
+            Número de iteraciones para el entrenamiento.
+        l2_penalty: float
+            Coeficiente de regularización L2.
+        strategy: str
+            Estrategia de clasificación ('binary' o 'multinomial').
+        use_class_weights: bool
+            Indica si se deben ajustar los pesos de las clases automáticamente.
+        plot_loss: bool
+            Indica si se debe graficar la pérdida durante el entrenamiento.
+        weights: array
+            Pesos del modelo ajustados durante el entrenamiento.
+        bias: float o array
+            Sesgo del modelo ajustado durante el entrenamiento.
+        labels: array
+            Etiquetas únicas de las clases.
+        loss_history: list
+            Historial de la pérdida durante el entrenamiento.
+    """
+    
     def __init__(self, learning_rate=0.01, iterations=1000, l2=0.0, multiclass_strategy='binary', reweight_cost=False, plot_loss=False):
         self.lr = learning_rate
         self.epochs = iterations
@@ -14,7 +48,7 @@ class LogisticRegression:
         self.labels = None
         self.loss_history = []
 
-    def _initialize_parameters(self, n_features, n_classes=None):
+    def initialize_parameters(self, n_features, n_classes=None):
         if self.strategy == 'binary':
             self.weights = np.zeros(n_features)
             self.bias = 0.0
@@ -22,8 +56,7 @@ class LogisticRegression:
             self.weights = np.zeros((n_features, n_classes))
             self.bias = np.zeros((1, n_classes))
 
-    def _compute_class_weights(self, y):
-        # Reponderación de clases para datos desbalanceados
+    def compute_class_weights(self, y):
         samples_per_class = np.bincount(y.astype(int))
         total_samples = len(y)
         weights = np.ones_like(y, dtype=np.float64)
@@ -31,45 +64,32 @@ class LogisticRegression:
             weights[y == label] = total_samples / (len(samples_per_class) * samples_per_class[int(label)])
         return weights
 
-    def _sigmoid(self, z):
+    def sigmoid(self, z):
         return 1 / (1 + np.exp(-z))
 
-    def _softmax(self, logits):
-        logits -= np.max(logits, axis=1, keepdims=True)  # Estabilidad numérica
+    def softmax(self, logits):
+        logits -= np.max(logits, axis=1, keepdims=True)  # para estabilidad numérica
         exp_scores = np.exp(logits)
         return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-
-    # def _one_hot_encode(self, y):
-    #     one_hot = np.zeros((len(y), len(self.labels)))
-    #     for idx, label in enumerate(y):
-    #         one_hot[idx, int(label)] = 1
-    #     return one_hot
     
-    def _one_hot_encode(self, y):
-        self.classes_ = np.unique(y)
-        y_index = np.array([np.where(self.classes_ == c)[0][0] for c in y])
-        one_hot = np.zeros((len(y), len(self.classes_)))
-        one_hot[np.arange(len(y)), y_index] = 1
-        return one_hot
+    def one_hot_encode(self, y):
+        self.class_map = dict(zip(self.labels, np.arange(len(self.labels))))
+        
+        indices = np.vectorize(self.class_map.get)(y)
+        encoded = np.zeros((len(y), len(self.labels)))
+        encoded[np.arange(len(y)), indices] = 1
 
+        return encoded
 
-    def _binary_loss(self, y_true, y_pred, weights):
-        # Función de pérdida binaria con regularización
-        eps = 1e-15  # Para evitar log(0)
-        loss = -np.mean(weights * (y_true * np.log(y_pred + eps) + (1 - y_true) * np.log(1 - y_pred + eps)))
+    def binary_loss(self, y_true, y_pred, weights): # con regularización
+        loss = -np.mean(weights * (y_true * np.log(y_pred + EPSILON) + (1 - y_true) * np.log(1 - y_pred + EPSILON)))
         reg = (self.l2_penalty / (2 * len(y_true))) * np.sum(self.weights ** 2)
         return loss + reg
-
-    def _multiclass_loss(self, y_true, y_pred):
-        eps = 1e-15
-        loss = -np.mean(np.sum(y_true * np.log(y_pred + eps), axis=1))
-        reg = (self.l2_penalty / (2 * len(y_true))) * np.sum(self.weights ** 2)
-        return loss + reg
-
-    def _update_parameters_binary(self, X, y, weights):
+    
+    def update_parameters_binary(self, X, y, weights):
         m = X.shape[0]
         for _ in range(self.epochs):
-            predictions = self._sigmoid(np.dot(X, self.weights) + self.bias)
+            predictions = self.sigmoid(np.dot(X, self.weights) + self.bias)
             errors = weights * (predictions - y)
 
             grad_w = (X.T @ errors) / m + (self.l2_penalty / m) * self.weights
@@ -79,14 +99,19 @@ class LogisticRegression:
             self.bias -= self.lr * grad_b
 
             if self.plot_loss:
-                loss = self._binary_loss(y, predictions, weights)
+                loss = self.binary_loss(y, predictions, weights)
                 self.loss_history.append(loss)
 
-    def _update_parameters_multiclass(self, X, y_encoded):
+    def multiclass_loss(self, y_true, y_pred):
+        loss = -np.mean(np.sum(y_true * np.log(y_pred + EPSILON), axis=1))
+        reg = (self.l2_penalty / (2 * len(y_true))) * np.sum(self.weights ** 2)
+        return loss + reg
+
+    def update_parameters_multiclass(self, X, y_encoded):
         m = X.shape[0]
         for _ in range(self.epochs):
             scores = np.dot(X, self.weights) + self.bias
-            probs = self._softmax(scores)
+            probs = self.softmax(scores)
             error = probs - y_encoded
 
             grad_w = (X.T @ error) / m + (self.l2_penalty / m) * self.weights
@@ -96,7 +121,7 @@ class LogisticRegression:
             self.bias -= self.lr * grad_b
 
             if self.plot_loss:
-                loss = self._multiclass_loss(y_encoded, probs)
+                loss = self.multiclass_loss(y_encoded, probs)
                 self.loss_history.append(loss)
     
     def fit(self, X, y, sample_weights=None):
@@ -106,31 +131,28 @@ class LogisticRegression:
         n_samples, n_features = X.shape
 
         if self.strategy == 'binary':
-            self._initialize_parameters(n_features)
-            # Si se especifican sample_weights, usarlos. Si no, calcularlos o usar 1s.
+            self.initialize_parameters(n_features)
             if sample_weights is not None:
                 weights = sample_weights
             elif self.use_class_weights:
-                weights = self._compute_class_weights(y)
+                weights = self.compute_class_weights(y)
             else:
                 weights = np.ones_like(y)
-            self._update_parameters_binary(X, y, weights)
+            self.update_parameters_binary(X, y, weights)
 
         elif self.strategy == 'multinomial':
             n_classes = len(self.labels)
-            self._initialize_parameters(n_features, n_classes)
-            y_one_hot = self._one_hot_encode(y)
-            self._update_parameters_multiclass(X, y_one_hot)
+            self.initialize_parameters(n_features, n_classes)
+            y_one_hot = self.one_hot_encode(y)
+            self.update_parameters_multiclass(X, y_one_hot)
         else:
             raise ValueError("La estrategia debe ser 'binary' o 'multinomial'.")
 
         if self.plot_loss:
-            self._plot_training_loss()
+            self.plot_training_loss()
 
-
-    def _plot_training_loss(self):
-        # Graficar la evolución de la función de pérdida
-        plt.figure(figsize=(8, 5))
+    def plot_training_loss(self):
+        plt.figure(figsize=(6, 4))
         plt.plot(self.loss_history, label='Loss', c="cadetblue")
         plt.title("Evolución de la pérdida durante el entrenamiento")
         plt.xlabel("Época")
@@ -143,91 +165,121 @@ class LogisticRegression:
     def predict_proba(self, X):
         X = np.asarray(X, dtype=np.float64)
         if self.strategy == 'binary':
-            return self._sigmoid(np.dot(X, self.weights) + self.bias)
+            return self.sigmoid(np.dot(X, self.weights) + self.bias)
         else:
-            return self._softmax(np.dot(X, self.weights) + self.bias)
+            return self.softmax(np.dot(X, self.weights) + self.bias)
 
     def predict(self, X):
         probs = self.predict_proba(X)
         if self.strategy == 'binary':
             return (probs >= 0.5).astype(int)
         else:
-            # return np.argmax(probs, axis=1)
             return self.labels[np.argmax(probs, axis=1)]
 
 
+# Problema 2
+
 class LDA:
+    """
+    Linear Discriminant Analysis (LDA) classifier.
+
+    Esta clase implementa el modelo generativo de LDA asumiendo que las
+    clases comparten la misma matriz de covarianza. Se estiman los parámetros
+    mediante la máxima verosimilitud bajo la suposición de que cada clase sigue
+    una distribución gaussiana multivariada.
+
+    Atributos:
+        classes: array, shape (n_classes,)
+            Etiquetas únicas de las clases.
+        means: dict
+            Diccionario que asigna a cada clase su vector de medias.
+        priors: dict
+            Diccionario que asigna a cada clase su probabilidad a priori.
+        covariance: array, shape (n_features, n_features)
+            Matriz de covarianza agrupada calculada a partir de los datos de entrenamiento.
+        covariance_inv: array, shape (n_features, n_features)
+            Inversa de la matriz de covarianza, almacenada para su uso en la función discriminante.
+    """
+
     def __init__(self):
-        # Diccionarios para guardar medias y probabilidades a priori por clase
-        self.means_ = {}
-        self.priors_ = {}
-        self.shared_covariance_ = None
-        self.classes_ = None
+        self.classes = None
+        self.means = {}
+        self.priors = {}
+        self.covariance = None
+        self.covariance_inv = None
 
     def fit(self, X, y):
-        X = np.array(X, dtype=np.float64)
-        y = np.array(y)
-        self.classes_ = np.unique(y)
-        n_samples, n_features = X.shape
+        X = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y)
+        self.classes = np.unique(y)
+        n_features = X.shape[1]
+        total_samples = X.shape[0]
 
-        # Inicializamos la matriz de covarianza acumulada
-        pooled_cov = np.zeros((n_features, n_features))
+        self.covariance = np.zeros((n_features, n_features))
 
-        for label in self.classes_:
-            # Extraemos las muestras que pertenecen a la clase actual
-            class_samples = X[y == label]
-            n_class_samples = class_samples.shape[0]
+        for cls in self.classes:
+            X_c = X[y == cls]
+            self.means[cls] = np.mean(X_c, axis=0)
+            self.priors[cls] = float(X_c.shape[0]) / total_samples
+            # np.cov calcula la matriz de covarianza dividiendo por (n-1) -> multiplicamos por (n-1) para obtener la suma de cuadrados.
+            self.covariance += (X_c.shape[0] - 1) * np.cov(X_c, rowvar=False)
 
-            # Calculamos la media por clase y la almacenamos
-            self.means_[label] = np.mean(class_samples, axis=0)
+        self.covariance /= (total_samples - len(self.classes))
 
-            # Calculamos la probabilidad a priori de la clase
-            self.priors_[label] = n_class_samples / n_samples
+        self.covariance_inv = np.linalg.inv(self.covariance)
+        return self
 
-            # Sumamos la covarianza (ponderada) de la clase al total
-            class_cov = np.cov(class_samples, rowvar=False)
-            pooled_cov += (n_class_samples - 1) * class_cov
-
-        # Covarianza compartida entre todas las clases (con corrección por grados de libertad)
-        self.shared_covariance_ = pooled_cov / (n_samples - len(self.classes_))
-
-    def _compute_score(self, X, mean, prior, cov_inv):
-        # Calcula el valor de la función discriminante para una clase
-        linear_term = X @ cov_inv @ mean
-        constant_term = -0.5 * mean.T @ cov_inv @ mean + np.log(prior)
-        return linear_term + constant_term
+    def _discriminant_function(self, X, mean, prior):
+        # fórmula: X @ Σ⁻¹ @ mean - 0.5 * meanᵀ @ Σ⁻¹ @ mean + log(prior)
+        return X @ self.covariance_inv @ mean - 0.5 * mean.T @ self.covariance_inv @ mean + np.log(prior)
 
     def predict(self, X):
-        X = np.array(X, dtype=np.float64)
-        inv_cov = np.linalg.inv(self.shared_covariance_)
-
-        # Evaluamos la función discriminante para cada clase
+        X = np.asarray(X, dtype=np.float64)
         scores = np.array([
-            self._compute_score(X, self.means_[label], self.priors_[label], inv_cov)
-            for label in self.classes_
+            self._discriminant_function(X, self.means[cls], self.priors[cls])
+            for cls in self.classes
         ])
-
-        # Elegimos la clase con el mayor score para cada muestra
-        return self.classes_[np.argmax(scores, axis=0)]
+        max_indices = np.argmax(scores, axis=0)
+        return self.classes[max_indices]
 
     def predict_proba(self, X):
-        X = np.array(X, dtype=np.float64)
-        inv_cov = np.linalg.inv(self.shared_covariance_)
-
-        # Calculamos los scores discriminantes para cada clase
-        raw_scores = np.array([
-            self._compute_score(X, self.means_[label], self.priors_[label], inv_cov)
-            for label in self.classes_
+        X = np.asarray(X, dtype=np.float64)
+        scores = np.array([
+            self._discriminant_function(X, self.means[cls], self.priors[cls])
+            for cls in self.classes
         ])
+        # para estabilidad numérica, se sustrae el máximo puntaje por muestra antes de exponenciar
+        max_score = np.max(scores, axis=0)
+        exp_scores = np.exp(scores - max_score)
+        probabilities = exp_scores / np.sum(exp_scores, axis=0)
+        return probabilities.T
 
-        # Aplicamos softmax columna por columna para obtener probabilidades
-        stabilized = raw_scores - np.max(raw_scores, axis=0)
-        exp_scores = np.exp(stabilized)
-        probs = exp_scores / np.sum(exp_scores, axis=0)
-        return probs.T  # Cada fila es una muestra, cada columna una clase
+    def score(self, X, y):
+        predictions = self.predict(X)
+        return np.mean(predictions == y)
+
 
 
 class DecisionTree:
+    """
+    Árbol de Decisión para clasificación.
+    
+    Esta clase implementa un Árbol de Decisión basado en la entropía como criterio
+    de división. Permite ajustar el modelo a un conjunto de datos y realizar predicciones
+    sobre nuevos datos.
+    
+    Atributos:
+        max_depth: int, opcional (default=None)
+            Profundidad máxima del árbol. Si es None, el árbol crecerá hasta que
+            todas las hojas sean puras o hasta que el número mínimo de muestras
+            por nodo sea alcanzado.
+        min_samples: int, opcional (default=2)
+            Número mínimo de muestras requerido para dividir un nodo.
+        root: dict
+            Nodo raíz del árbol de decisión, que contiene la estructura del árbol
+            construido tras el ajuste.
+    """
+    
     def __init__(self, max_depth=None, min_samples=2):
         self.max_depth = max_depth
         self.min_samples = min_samples
@@ -249,7 +301,7 @@ class DecisionTree:
         for feat_idx in range(n_features):
             column = X[:, feat_idx]
 
-            # Saltar si la columna no es numérica
+            # si la columna no es numérica -> saltar
             if not np.issubdtype(column.dtype, np.number):
                 continue
 
@@ -300,44 +352,67 @@ class DecisionTree:
         y = np.array(y)
         self.root = self.build(X, y)
 
-    def _predict_single(self, x, node):
+    def predict_single(self, x, node):
         if node['is_leaf']:
             return node['class']
         if x[node['feature']] <= node['threshold']:
-            return self._predict_single(x, node['left'])
+            return self.predict_single(x, node['left'])
         else:
-            return self._predict_single(x, node['right'])
+            return self.predict_single(x, node['right'])
 
     def predict(self, X):
-        return np.array([self._predict_single(x, self.root) for x in X])
-
+        return np.array([self.predict_single(x, self.root) for x in X])
 
     def fit(self, X, y):
         X = np.asarray(X)
         y = np.asarray(y)
         self.root = self.build(X, y, depth=0)
 
-    def predict_sample(self, x, node):
+    def predict_proba(self, x, node):
         if node['is_leaf']:
             return node['class']
         if x[node['feature']] <= node['threshold']:
-            return self.predict_sample(x, node['left'])
+            return self.predict_proba(x, node['left'])
         else:
-            return self.predict_sample(x, node['right'])
+            return self.predict_proba(x, node['right'])
 
     def predict(self, X):
-        return np.array([self.predict_sample(x, self.root) for x in X])
+        return np.array([self.predict_proba(x, self.root) for x in X])
 
 
 class RandomForest:
-    def __init__(self, n_estimators=10, max_depth=None, min_samples=2):
-        self.n_estimators = n_estimators
+    """
+    Random Forest classifier.
+    
+    Esta clase implementa un modelo de Random Forest, que combina múltiples
+    árboles de decisión entrenados en subconjuntos aleatorios de los datos
+    para realizar clasificación. Utiliza el método de muestreo bootstrap
+    para generar subconjuntos de datos y votación mayoritaria para predecir
+    las etiquetas finales.
+    
+    Atributos:
+        n_estimators: int
+            Número de árboles en el bosque.
+        max_depth: int o None
+            Profundidad máxima permitida para cada árbol. Si es None, los árboles
+            crecerán hasta que todas las hojas sean puras o contengan menos de
+            min_samples.
+        min_samples: int
+            Número mínimo de muestras requeridas para dividir un nodo.
+        trees: list
+            Lista de árboles de decisión individuales que componen el bosque.
+        classes_: array, shape (n_classes,)
+            Etiquetas únicas de las clases presentes en los datos de entrenamiento.
+    """
+    
+    def __init__(self, n_trees=10, max_depth=None, min_samples=2):
+        self.n_estimators = n_trees
         self.max_depth = max_depth
         self.min_samples = min_samples
         self.trees = []
         self.classes_ = None
 
-    def _bootstrap_sample(self, X, y):
+    def bootstrap_sample(self, X, y):
         n = len(X)
         idxs = np.random.choice(n, size=n, replace=True)
         return X[idxs], y[idxs]
@@ -349,7 +424,7 @@ class RandomForest:
         self.trees = []
 
         for _ in range(self.n_estimators):
-            X_sample, y_sample = self._bootstrap_sample(X, y)
+            X_sample, y_sample = self.bootstrap_sample(X, y)
             tree = DecisionTree(max_depth=self.max_depth, min_samples=self.min_samples)
             tree.fit(X_sample, y_sample)
             self.trees.append(tree)

@@ -1,24 +1,22 @@
 import pandas as pd
 import numpy as np
-
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-
 def normalize_dataframe(df, target_col, train=True, stats_dict=None):
     """
-    Standardizes numerical features by subtracting the mean and dividing by the standard deviation.
-    Saves the mean and std in a dictionary for consistent transformation during validation.
+    Estandariza las características numéricas restando la media y dividiendo por la desviación estándar.
+    Guarda la media y la desviación estándar en un diccionario para una transformación consistente durante la validación.
 
     Parameters:
-    - df (pd.DataFrame): The input DataFrame.
-    - is_training (bool): Whether the function is being called on training data.
-    - stats (dict): Dictionary to store or reuse mean and std values.
-    - target_col (str): The name of the target column to exclude from normalization.
+    - df (pd.DataFrame): El DataFrame de entrada.
+    - is_training (bool): Indica si la función se está llamando con datos de entrenamiento.
+    - stats (dict): Diccionario para almacenar o reutilizar los valores de media y desviación estándar.
+    - target_col (str): El nombre de la columna objetivo que se excluye de la normalización.
 
     Returns:
-    - pd.DataFrame: DataFrame with normalized numeric features.
-    - dict: Dictionary containing the mean and std of each normalized feature.
+    - pd.DataFrame: DataFrame con características numéricas normalizadas.
+    - dict: Diccionario que contiene la media y la desviación estándar de cada característica normalizada.
     """
     if stats_dict is None:
         stats_dict = {}
@@ -32,7 +30,7 @@ def normalize_dataframe(df, target_col, train=True, stats_dict=None):
 
         unique_vals = df[col].dropna().unique()
         if set(unique_vals).issubset({0, 1}):
-            continue  # Skip binary/categorical columns
+            continue  # salteo columnas binarias
 
         if train:
             mean_val = df[col].mean()
@@ -47,6 +45,17 @@ def normalize_dataframe(df, target_col, train=True, stats_dict=None):
     return df_copy, stats_dict
 
 def calculate_stats_dict(df):
+    """
+    Calcula estadísticas básicas para cada columna de un DataFrame.
+
+    Parameters:
+    - df (pd.DataFrame): El DataFrame de entrada.
+
+    Returns:
+    - dict: Diccionario donde las claves son los nombres de las columnas del DataFrame.
+        Para columnas de tipo 'object', contiene la moda ('mode').
+        Para columnas numéricas, contiene la media ('mean') y la desviación estándar ('std').
+    """
     stats = {}
     for column in df.columns:
         if df[column].dtype == 'object':
@@ -100,22 +109,17 @@ def binary_encode_column(df, column, mapping):
     - pd.DataFrame: DataFrame con la columna codificada como enteros.
     """
     df_copy = df.copy()
-
-    # Reemplazar y luego convertir a tipo int de forma explícita
-    # df_copy[column] = df_copy[column].replace(mapping)
     df_copy[column] = df_copy[column].replace(mapping).infer_objects(copy=False) # por el warning
-
     
     if df_copy[column].isnull().any():
         raise ValueError(f"Valores no reconocidos en columna '{column}' después de aplicar el mapeo: {df_copy[column].unique()}")
 
-    # Esto evita el FutureWarning:
-    df_copy[column] = pd.to_numeric(df_copy[column], errors="raise", downcast="integer")
+    df_copy[column] = pd.to_numeric(df_copy[column], errors="raise", downcast="integer") # también para evitar el warning de depreciación de .replace
 
     return df_copy
 
 
-def handle_missing_values(data, target_col, train=True, reference=None, intervals=None, stats_dict=None, neighbors=5):
+def fill_n_fix_ranges(data, target_col, train=True, reference=None, intervals=None, stats_dict=None, neighbors=5):
     """
     Maneja valores faltantes reemplazando con media/moda o imputación KNN,
     solo para columnas incluidas en intervals.
@@ -143,7 +147,7 @@ def handle_missing_values(data, target_col, train=True, reference=None, interval
             continue
 
         if intervals is not None and col not in intervals:
-            continue  # Solo rellenar si la columna está en intervals
+            continue 
 
         if train:
             if filled_data[col].dtype == object or filled_data[col].dtype == bool:

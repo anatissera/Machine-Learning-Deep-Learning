@@ -6,7 +6,6 @@ from IPython.display import Markdown, display
 
 EPSILON = 1e-15
 
-
 # Problema 1
 
 class BinaryMetrics:

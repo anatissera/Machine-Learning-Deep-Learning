@@ -3,16 +3,16 @@ import numpy as np
 
 def split_train_validation(df, val_ratio=0.2, seed=42):
     """
-    Randomly splits a DataFrame into training and validation subsets.
+    Divide aleatoriamente un DataFrame en subconjuntos de entrenamiento y validación.
 
-    Parameters:
-    - df (pd.DataFrame): The full dataset to split.
-    - val_ratio (float): Proportion of the data to assign to the validation set.
-    - seed (int): Random seed for reproducibility.
+    Parámetros:
+    - df (pd.DataFrame): El conjunto de datos completo a dividir.
+    - val_ratio (float): Proporción de los datos a asignar al conjunto de validación.
+    - seed (int): Semilla aleatoria para reproducibilidad.
 
-    Returns:
-    - pd.DataFrame: Training subset.
-    - pd.DataFrame: Validation subset.
+    Retorna:
+    - pd.DataFrame: Subconjunto de entrenamiento.
+    - pd.DataFrame: Subconjunto de validación.
     """
     validation_set = df.sample(frac=val_ratio, random_state=seed)
     training_set = df.drop(validation_set.index)

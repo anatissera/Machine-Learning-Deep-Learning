@@ -4,6 +4,20 @@ import numpy as np
 import pandas as pd
 
 def plot_features_with_correlation(df, dataset_name, target_col, features=None, start=0, batch_size=14):
+    """
+    Genera gráficos de distribución para un subconjunto de características de un DataFrame y calcula su correlación con la columna objetivo.
+    
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada que contiene las características y la columna objetivo.
+    - dataset_name (str): Nombre del conjunto de datos, utilizado en el título del gráfico.
+    - target_col (str): Nombre de la columna objetivo con la cual se calculará la correlación.
+    - features (list, optional): Lista de características a graficar. Si no se proporciona, se utilizarán todas las columnas excepto la columna objetivo.
+    - start (int, optional): Índice inicial del subconjunto de características a graficar. Por defecto es 0.
+    - batch_size (int, optional): Cantidad de características a incluir en cada batch de gráficos. Por defecto es 14.
+    
+    Returns:
+    - None
+    """
     if features is None:
         features = df.columns.drop(target_col)
 
@@ -30,7 +44,7 @@ def plot_features_with_correlation(df, dataset_name, target_col, features=None, 
 
         ax.set_title(f"{feature}", fontsize=12)
 
-        try:   # Calcular correlación
+        try:   # calcular correlación
             if pd.api.types.is_numeric_dtype(df[feature]):
                 corr = df[[feature, target_col]].corr().iloc[0, 1]
             else:
@@ -51,7 +65,7 @@ def plot_features_with_correlation(df, dataset_name, target_col, features=None, 
     plt.show()
 
     if best_feature is not None:
-        print(f"📈 Feature más correlacionada en este batch: **{best_feature}** (corr = {best_corr:.3f})")
+        print(f"Feature más correlacionada en este batch: **{best_feature}** (corr = {best_corr:.3f})")
 
 
 
@@ -60,13 +74,13 @@ def plot_correlations_with_target(df, dataset_name, target_col, plot=True, color
     Calcula y muestra (opcionalmente) la correlación entre las variables numéricas
     y una variable objetivo.
 
-    Parámetros:
-    - dataframe: DataFrame de entrada (pandas).
-    - target: Nombre de la variable objetivo.
-    - show_plot: Si es True, se muestra un gráfico tipo heatmap.
-    - colormap: Paleta de colores para el gráfico.
+    Parameters:
+    - df (pd.DataFrame): DataFrame de entrada.
+    - target_col (str): Nombre de la variable objetivo.
+    - plot (bool): Si es True, se muestra un gráfico tipo heatmap.
+    - colormap (str): Paleta de colores para el gráfico.
 
-    Retorna:
+    Returns:
     - Una Serie de pandas con las correlaciones ordenadas por valor absoluto (ascendente).
     """
 
@@ -99,34 +113,6 @@ def plot_correlations_with_target(df, dataset_name, target_col, plot=True, color
     else:
         return sorted_correlations
     
-    
-# def plot_pairplot(df, target_col):
-#     """
-#     Genera un gráfico de pares (pair plot) para visualizar las relaciones entre columnas numéricas.
-
-#     Parameters:
-#     df (pd.DataFrame): El DataFrame de entrada.
-#     target_col (str): El nombre de la columna objetivo para el color del gráfico.
-
-#     Returns:
-#     None
-#     """
-
-#     numeric_df = df.select_dtypes(include=['number'])
-    
-#     if numeric_df.shape[1] < 2:
-#         print("No hay suficientes columnas numéricas para crear un pair plot.")
-#         return
-
-#     # sns.pairplot(numeric_df, diag_kind='kde', hue=target_col)
-#     custom_colors = ["palevioletred", "lightseagreen"]  # Rojo y azul
-#     sns.pairplot(numeric_df.join(df[target_col]), diag_kind='kde', hue=target_col, palette=custom_colors)
-
-#     plt.show()
-    
-    
-# import seaborn as sns
-# import matplotlib.pyplot as plt
 
 def plot_pairplot(df, target_col, palette=["palevioletred", "cadetblue"]):
     """
@@ -134,12 +120,12 @@ def plot_pairplot(df, target_col, palette=["palevioletred", "cadetblue"]):
     excluyendo todas las categóricas excepto la columna objetivo, que se usa para colorear.
 
     Parameters:
-    df (pd.DataFrame): El DataFrame de entrada.
-    target_col (str): El nombre de la columna objetivo para el color del gráfico.
-    palette (list or dict, optional): Lista o diccionario de colores personalizados.
+    - df (pd.DataFrame): El DataFrame de entrada.
+    - target_col (str): El nombre de la columna objetivo para el color del gráfico.
+    - palette (list or dict, optional): Lista o diccionario de colores personalizados.
 
     Returns:
-    None
+    - None
     """
 
     numeric_df = df.select_dtypes(include=['number'])
