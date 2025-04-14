@@ -86,21 +86,21 @@ class BinaryMetrics:
     def plot_conf_matrix(self, labels=["Negative", "Positive"], title="Confusion Matrix"):
         matrix = self.conf_matrix()
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(4.5, 3.5))
         im = ax.imshow(matrix, cmap="tab20b", alpha=0.9)
 
         ax.set_xticks([0, 1])
         ax.set_yticks([0, 1])
-        ax.set_xticklabels(labels, fontsize=13.5)
-        ax.set_yticklabels(labels, fontsize=13.5)
+        ax.set_xticklabels(labels)
+        ax.set_yticklabels(labels)
         
-        ax.set_xlabel("Predicted Label", fontsize=16)
-        ax.set_ylabel("True Label", fontsize=16)
-        ax.set_title(title, fontsize=17)
+        ax.set_xlabel("Predicted Label")
+        ax.set_ylabel("True Label")
+        ax.set_title(title)
 
         for i in range(2):
             for j in range(2):
-                ax.text(j, i, str(matrix[i, j]), ha='center', va='center', color='black', fontsize=12)
+                ax.text(j, i, str(matrix[i, j]), ha='center', va='center', color='black')
 
         plt.colorbar(im)
         plt.tight_layout()
@@ -109,18 +109,16 @@ class BinaryMetrics:
     def plot_roc_curve(self, label=None, show=True, plot_color=None):
         fpr, tpr = self.roc_curve()
         auc_val = self.auc(fpr, tpr)
-
+        
         if plot_color:
             plt.plot(fpr, tpr, label=label or f"ROC AUC = {auc_val:.4f}", color=plot_color, linewidth=3.5)
         else:
             plt.plot(fpr, tpr, label=label or f"ROC AUC = {auc_val:.4f}")
-        plt.xlabel("False Positive Rate", fontsize=16)
-        plt.ylabel("True Positive Rate", fontsize=16)
-        plt.title("ROC Curve", fontsize=17)
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("ROC Curve")
         plt.grid(True)
-        plt.legend(fontsize=14)
-        plt.xticks(fontsize=11)
-        plt.yticks(fontsize=11)
+        plt.legend()
         if show:
             plt.show()
         return auc_val
@@ -133,13 +131,11 @@ class BinaryMetrics:
             plt.plot(recall_vals, precision_vals, label=label or f"PR AUC = {auc_val:.4f}", color=plot_color, linewidth=3.5)
         else:
             plt.plot(recall_vals, precision_vals, label=label or f"PR AUC = {auc_val:.4f}")
-        plt.xlabel("Recall", fontsize=16)
-        plt.ylabel("Precision", fontsize=16)
-        plt.title("Precision-Recall Curve", fontsize=17)
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.title("Precision-Recall Curve")
         plt.grid(True)
-        plt.legend(fontsize= 14)
-        plt.xticks(fontsize=11)
-        plt.yticks(fontsize=11)
+        plt.legend()
         if show:
             plt.show()
         return auc_val
@@ -269,7 +265,7 @@ class MulticlassMetrics:
             for j, pred in enumerate(self.labels):
                 mat[i, j] = np.sum((self.y_true == actual) & (self.y_pred == pred))
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(4.5, 3.5))
         im = ax.imshow(mat, cmap="GnBu")
         ax.set_xticks(np.arange(n))
         ax.set_yticks(np.arange(n))
@@ -281,7 +277,7 @@ class MulticlassMetrics:
 
         for i in range(n):
             for j in range(n):
-                ax.text(j, i, mat[i, j], ha='center', va='center', color='black')
+                ax.text(j, i, mat[i, j], ha='center', va='center', color='black', fontsize=11)
 
         plt.colorbar(im)
         plt.tight_layout()
@@ -289,14 +285,15 @@ class MulticlassMetrics:
 
     def plot_roc_curve(self, show=True):
         aucs = []
-        plt.figure()
+        plt.figure(figsize=(4.5,3.5))
+        colors = ['lightseagreen', 'slateblue', 'palevioletred']
         for i, label in enumerate(self.labels):
             binary_true = (self.y_true == label).astype(int)
             class_scores = self.y_proba[:, i]
             fpr, tpr = self.roc_curve(binary_true, class_scores)
             area = self.auc(fpr, tpr)
             aucs.append(area)
-            plt.plot(fpr, tpr, label=f"Class {label} (AUC = {area:.4f})")
+            plt.plot(fpr, tpr, label=f"Class {label} (AUC = {area:.4f})", linewidth=2, color= colors[i])
 
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
@@ -309,14 +306,15 @@ class MulticlassMetrics:
 
     def plot_pr_curve(self, show=True):
         aucs = []
-        plt.figure()
+        plt.figure(figsize=(4.5,3.5))
+        colors = ['lightseagreen', 'slateblue', 'palevioletred']
         for i, label in enumerate(self.labels):
             binary_true = (self.y_true == label).astype(int)
             class_scores = self.y_proba[:, i]
             recall_vals, precision_vals = self.pr_curve(binary_true, class_scores)
             area = self.auc(recall_vals[::-1], precision_vals[::-1])
             aucs.append(area)
-            plt.plot(recall_vals, precision_vals, label=f"Class {label} (AUC = {area:.4f})")
+            plt.plot(recall_vals, precision_vals, label=f"Class {label} (AUC = {area:.4f})", linewidth=2, color= colors[i])
 
         plt.xlabel("Recall")
         plt.ylabel("Precision")
