@@ -269,15 +269,15 @@ class MulticlassMetrics:
         im = ax.imshow(mat, cmap="GnBu")
         ax.set_xticks(np.arange(n))
         ax.set_yticks(np.arange(n))
-        ax.set_xticklabels(self.labels)
-        ax.set_yticklabels(self.labels)
-        ax.set_xlabel("Predicted")
-        ax.set_ylabel("True")
-        ax.set_title(title)
+        ax.set_xticklabels(self.labels, fontsize=10)
+        ax.set_yticklabels(self.labels, fontsize=10)
+        ax.set_xlabel("Predicted", fontsize=14)
+        ax.set_ylabel("True",fontsize=14)
+        ax.set_title(title, fontsize=14)
 
         for i in range(n):
             for j in range(n):
-                ax.text(j, i, mat[i, j], ha='center', va='center', color='black', fontsize=11)
+                ax.text(j, i, mat[i, j], ha='center', va='center', color='black', fontsize=10)
 
         plt.colorbar(im)
         plt.tight_layout()
@@ -295,11 +295,13 @@ class MulticlassMetrics:
             aucs.append(area)
             plt.plot(fpr, tpr, label=f"Class {label} (AUC = {area:.4f})", linewidth=2, color= colors[i])
 
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("Multiclass ROC Curve")
+        plt.xlabel("False Positive Rate", fontsize= 14)
+        plt.ylabel("True Positive Rate", fontsize= 14)
+        plt.title("Multiclass ROC Curve", fontsize= 14)
+        plt.xticks(fontsize= 9)
+        plt.yticks(fontsize= 9)
         plt.grid(True)
-        plt.legend()
+        plt.legend(fontsize= 10)
         if show:
             plt.show()
         return aucs
@@ -316,11 +318,13 @@ class MulticlassMetrics:
             aucs.append(area)
             plt.plot(recall_vals, precision_vals, label=f"Class {label} (AUC = {area:.4f})", linewidth=2, color= colors[i])
 
-        plt.xlabel("Recall")
-        plt.ylabel("Precision")
-        plt.title("Multiclass PR Curve")
+        plt.xlabel("Recall", fontsize= 14)
+        plt.ylabel("Precision", fontsize= 14)
+        plt.title("Multiclass PR Curve", fontsize= 14)
+        plt.xticks(fontsize= 9)
+        plt.yticks(fontsize= 9)
         plt.grid(True)
-        plt.legend()
+        plt.legend(fontsize= 10)
         if show:
             plt.show()
         return aucs

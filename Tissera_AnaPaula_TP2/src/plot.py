@@ -40,9 +40,15 @@ def plot_features_with_correlation(df, dataset_name, target_col, features=None, 
             sns.histplot(df[feature], kde=True, ax=ax, color="mediumslateblue")
         else:
             sns.countplot(x=df[feature], hue=df[feature], ax=ax, palette="Set2", legend=False)
-            ax.tick_params(axis='x', rotation=45)
+            ax.tick_params(axis='x', rotation=45, fontsize= 19)
 
-        ax.set_title(f"{feature}", fontsize=12)
+        ax.set_title(f"{feature}", fontsize=19)
+        ax.set_xlabel(ax.get_xlabel(), fontsize=18)
+        ax.set_ylabel(ax.get_ylabel(), fontsize=18)
+
+        # Agrandar numeritos de los ejes
+        ax.tick_params(axis='x', labelsize=13)
+        ax.tick_params(axis='y', labelsize=13)
 
         try:   # calcular correlación
             if pd.api.types.is_numeric_dtype(df[feature]):
