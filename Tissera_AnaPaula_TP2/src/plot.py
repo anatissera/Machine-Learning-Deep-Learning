@@ -112,7 +112,8 @@ def plot_correlations_with_target(df, dataset_name, target_col, plot=True, color
             fmt=".2f"
         )
         plt.title(f"Correlación de características del {dataset_name} con la variable objetivo: {target_col}")
-        plt.yticks([])
+        plt.yticks([], fontsize= 10)
+        plt.xticks(fontsize= 10)
         plt.tight_layout()
         plt.show()
     
