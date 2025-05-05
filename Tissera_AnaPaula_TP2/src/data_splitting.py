@@ -1,5 +1,3 @@
-import pandas as pd
-import numpy as np
 
 def split_train_validation(df, val_ratio=0.2, seed=42):
     """
