@@ -78,6 +78,8 @@ class Metrics:
         if self.y_proba is not None:
             ce = self.cross_entropy()
             md += f"**Cross-Entropy Loss:** {ce:.4f}  \n"
+        
+        display(Markdown(md))
 
         if plot_matrix_heatmap:
             self.plot_heatmap_confusion_matrix(cmap=cmap)
@@ -90,7 +92,7 @@ class Metrics:
             for i, label in enumerate(self.labels):
                 row = f"|{label}|" + "|".join(str(x) for x in cm[i]) + "|\n"
                 rows += row
-            md += "**Matriz de Confusión:**  \n" + header + sep + rows
-        display(Markdown(md))
+            md_cm = "**Matriz de Confusión:**  \n" + header + sep + rows
+            display(Markdown(md_cm))
 
 
