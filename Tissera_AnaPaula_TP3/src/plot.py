@@ -106,7 +106,7 @@ def plot_class_distribution(y, name_map=None, figsize=(8, 4), color='skyblue'):
     plt.show()
     
 def plot_loss(epochs, train_losses, val_losses=None):
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(6, 4))
     plt.plot(range(1, epochs+1), train_losses, label="Train Loss")
     if val_losses:
         plt.plot(range(1, epochs+1), val_losses, label="Val Loss")

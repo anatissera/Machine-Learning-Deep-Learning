@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import trange, tqdm   
+
 EPS = 1e-15
 
 class NeuralNetwork:
@@ -50,7 +52,7 @@ class NeuralNetwork:
         for l in range(1, self.L+1):
             in_size = self.layer_sizes[l-1]
             out_size = self.layer_sizes[l]
-            self.weights[l] = np.random.randn(out_size, in_size) * np.sqrt(2. / in_size)
+            self.weights[l] = np.random.randn(out_size, in_size) * np.sqrt(2. / in_size) # para mantener varianza
             self.biases[l] = np.zeros((out_size, 1))
             if self.use_batchnorm and l < self.L:
                 self.gamma[l] = np.ones((out_size,1))
@@ -161,7 +163,8 @@ class NeuralNetwork:
             grads[f'db{l}'] = (1/self.batch_m) * np.sum(dZ, axis=1, keepdims=True)
             if l > 1:
                 Z_prev = self.caches[f'Z{l-1}']  # Z⁽ℓ-1⁾
-                dA_prev = self.weights[l].T.dot(dZ)  # δ⁽ℓ-1⁾ = (W⁽ℓ⁾)ᵀ ⋅ δ⁽ℓ⁾
+                W_orig = self.weights[l].copy()
+                dA_prev = W_orig.T.dot(dZ)  # δ⁽ℓ-1⁾ = (W⁽ℓ⁾)ᵀ ⋅ δ⁽ℓ⁾
                 if self.dropout_p > 0:
                     dA_prev *= self.caches[f'D{l-1}']  # máscara de dropout
                 dZ = dA_prev * self._relu_derivative(Z_prev)  # δ⁽ℓ-1⁾ = dA ⊙ ReLU′(Z⁽ℓ-1⁾)
@@ -185,15 +188,19 @@ class NeuralNetwork:
             return self.initial_lr * np.exp(-decay_rate * t)
         return lr_fn
 
-    def normal_bp(self, X_train, Y_train, X_val=None, Y_val=None,
-                  epochs=100, plot=True, lr_schedule=None):
+
+
+    def train_bp(self, X_train, Y_train, X_val=None, Y_val=None,
+                  epochs=3000, plot=True, lr_schedule=None):
         """Entrena la red usando batch GD, SGD o mini-batch según optimizer y batch_size."""
         best_loss = np.inf
         wait = 0
         best_params = None
         train_losses, val_losses = [], []
         self.learning_rate = self.initial_lr
-        for epoch in range(epochs):
+
+        # Reemplazamos range por trange para la barra de progreso
+        for epoch in trange(epochs, desc="Epochs"):
             if lr_schedule:
                 self.learning_rate = lr_schedule(epoch)
             # definir batches según optimizer
@@ -206,11 +213,13 @@ class NeuralNetwork:
                 bs = self.batch_size or m
                 perm = np.random.permutation(m)
                 batches = [perm[i:i+bs] for i in range(0, m, bs)]
-            # entrenar por lotes
-            for batch in batches:
+
+            # entrenar por lotes, con tqdm si quieres ver progreso interno
+            for batch in tqdm(batches, desc=f" Epoch {epoch+1} batches", leave=False):
                 Xb, Yb = X_train[batch], Y_train[batch]
                 self.forward(Xb, train=True)
                 self.backward(Yb)
+
             # pérdidas
             tr_loss = self.compute_loss(self.forward(X_train, train=False), Y_train)
             train_losses.append(tr_loss)
@@ -224,8 +233,8 @@ class NeuralNetwork:
                         wait += 1
                         if wait >= self.patience:
                             self.weights, self.biases = best_params
-                            # print(f"Early stopping en época {epoch+1}")
                             return train_losses, val_losses
+
         # plot de pérdidas
         if plot:
             from src.plot import plot_loss

@@ -50,7 +50,7 @@ class Metrics:
             cm[i, j] += 1
         return cm
 
-    def plot_heatmap_confusion_matrix(self, cmap=None):
+    def plot_heatmap_confusion_matrix(self, cmap='Blues'):
         """
         Plotea la matriz de confusión con un heatmap.
         Parámetro:
@@ -70,7 +70,7 @@ class Metrics:
         plt.tight_layout()
         plt.show()
 
-    def report_metrics(self, title="Métricas de Performance", show_matrix_table = True, plot_matrix_heatmap=True, cmap=None):
+    def report_metrics(self, title="Métricas de Performance", show_matrix_table = False, plot_matrix_heatmap=True, cmap='Blues'):
         """Muestra métricas en Markdown y heatmap opcional. """
         md = f"### {title}\n"
         acc = self.accuracy()

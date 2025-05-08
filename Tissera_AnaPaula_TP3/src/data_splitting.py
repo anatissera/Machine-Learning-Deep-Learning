@@ -1,47 +1,47 @@
 import numpy as np
 
-def split_data(X, y, ratio=0.2, random_seed=None):
-    """
-    Divide X e y en conjuntos dev y test, manteniendo el emparejamiento.
 
-    Parámetros
-    ----------
-    X : array-like, shape (N, ...)
-        Datos de entrada.
-    y : array-like, shape (N,)
-        Etiquetas asociadas.
-    ratio : float, opcional (default=0.2)
-        Fracción de ejemplos que irán al conjunto *dev*. Debe estar entre 0 y 1.
-    random_seed : int o None, opcional
-        Semilla para el muestreo aleatorio. Si es None, usa la aleatoriedad global.
 
-    Devuelve
-    -------
-    X_dev, X_test, y_dev, y_test : tuple de arrays
-        - X_dev, y_dev: datos para desarrollo/validación  
-        - X_test, y_test: datos para test
-    """
-    # Validaciones básicas
-    if not (0.0 < ratio < 1.0):
-        raise ValueError("`ratio` debe estar entre 0 y 1 (excluyendo extremos)")
-    X = np.asarray(X)
-    y = np.asarray(y)
-    if X.shape[0] != y.shape[0]:
-        raise ValueError("X e y deben tener el mismo número de muestras en la primera dimensión")
+def data_splitter(X, y, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=42):
+    assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, "Ratios deben sumar 1"
 
-    # Generar permutación reproducible
-    rng = np.random.RandomState(random_seed)
-    perm = rng.permutation(X.shape[0])
+    # Mezclar los datos
+    np.random.seed(seed)
+    indices = np.arange(len(X))
+    np.random.shuffle(indices)
 
-    # Índice de corte
-    n_dev = int(np.floor(ratio * X.shape[0]))
+    X_shuffled = X[indices]
+    y_shuffled = y[indices]
 
-    # Seleccionar índices
-    idx_dev  = perm[:n_dev]
-    idx_test = perm[n_dev:]
+    # Partición
+    N = len(X)
+    train_end = int(train_ratio * N)
+    val_end = train_end + int(val_ratio * N)
 
-    # Partir los arrays
-    X_dev,  X_test  = X[idx_dev],  X[idx_test]
-    y_dev,  y_test  = y[idx_dev],  y[idx_test]
+    X_train, y_train = X_shuffled[:train_end], y_shuffled[:train_end]
+    X_val, y_val = X_shuffled[train_end:val_end], y_shuffled[train_end:val_end]
+    X_test, y_test = X_shuffled[val_end:], y_shuffled[val_end:]
 
-    return X_dev, X_test, y_dev, y_test
+    return X_train, y_train, X_val, y_val, X_test, y_test
+
+
+def split_data(X, y, ratio=0.2, seed=42):
+    assert 0 < ratio < 1, "val_ratio debe estar entre 0 y 1"
+
+    # Mezclar los datos
+    np.random.seed(seed)
+    indices = np.arange(len(X))
+    np.random.shuffle(indices)
+
+    X_shuffled = X[indices]
+    y_shuffled = y[indices]
+
+    # Partición
+    N = len(X)
+    val_size = int(ratio * N)
+    train_size = N - val_size
+
+    X_train, y_train = X_shuffled[:train_size], y_shuffled[:train_size]
+    X_val, y_val = X_shuffled[train_size:], y_shuffled[train_size:]
+
+    return X_train, y_train, X_val, y_val
