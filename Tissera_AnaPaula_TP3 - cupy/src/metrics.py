@@ -85,7 +85,7 @@ class Metrics:
         """Muestra métricas en Markdown y heatmap opcional."""
         md = f"### {title}\n"
         acc = self.accuracy()
-        md += f"**Accuracy:** {acc:.4f}  \n"
+        md += f"**Accuracy:** **{acc:.4f}**  \n"
         if self.y_proba is not None:
             ce = self.cross_entropy()
             md += f"**Cross-Entropy Loss:** {ce:.4f}  \n"
