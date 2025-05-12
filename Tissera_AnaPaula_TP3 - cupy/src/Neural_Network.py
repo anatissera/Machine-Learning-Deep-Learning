@@ -12,19 +12,21 @@ class NeuralNetwork:
         layer_sizes,
         learning_rate=0.01,
         seed=None,
-        optimizer='gd',       # 'gd' o 'mb'
-        batch_size=None,      # tamaño de mini-batch para 'mb'; si None usa 1 (SGD)
+        optimizer='gd',       
+        batch_size=None,      # para 'mb'; si None usa 1 (SGD)
         l2_lambda=0.0,
         dropout_p=0.0,
         use_batchnorm=False,
         early_stopping=False,
-        patience=5
+        patience=10,
+        lr_min=None
     ):
         if seed is not None:
             cp.random.seed(seed)
         self.layer_sizes = layer_sizes
         self.initial_lr = learning_rate
         self.learning_rate = learning_rate
+        self.lr_min = lr_min     
         self.L = len(layer_sizes) - 1
 
         self.optimizer = optimizer
@@ -35,6 +37,8 @@ class NeuralNetwork:
         self.early_stopping = early_stopping
         self.patience = patience
 
+        self.step_count = 0
+        
         self.adam_m = {}
         self.adam_v = {}
         self.adam_t = 0
@@ -183,38 +187,45 @@ class NeuralNetwork:
             return max(final_lr, self.initial_lr * (1 - t/max_epochs))
         return lr_fn
 
-    def get_exponential_schedule(self, decay_rate):
+    def get_exponential_schedule(self, decay_rate=0.9, final_lr=None):
         """
         Crea función de tasa exponencial:
         lr(t) = initial_lr * exp(-decay_rate * t)
         """
         def lr_fn(t):
-            return self.initial_lr * cp.exp(-decay_rate * t)
+            lr = self.initial_lr * cp.exp(-decay_rate * t)
+
+            min_lr = final_lr if final_lr is not None else self.lr_min
+            if min_lr is not None:
+                return max(min_lr, lr)
+            return lr
         return lr_fn
 
     def train_bp(self, X_train, Y_train, X_val=None, Y_val=None,
-                  epochs=3000, plot=True, lr_schedule=None):
+                  epochs=1000, plot=True, lr_schedule=None):
         """Entrena la red usando Batch GD o Mini-batch SGD (incluye SGD si batch_size=1)."""
         best_loss = float('inf')
         wait = 0
         best_params = None
         train_losses, val_losses = [], []
         self.learning_rate = self.initial_lr
+        self.step_count = 0
 
         for epoch in trange(epochs, desc="Epochs"):
-            if lr_schedule:
-                self.learning_rate = lr_schedule(epoch)
-
             m = X_train.shape[0]
             if self.optimizer in ['gd', 'adam']:
                 batches = [cp.arange(m)]
             else:
-                # Mini-batch SGD (batch_size=None -> SGD con bs=1)
                 bs = self.batch_size or 1
                 perm = cp.random.permutation(m)
                 batches = [perm[i:i+bs] for i in range(0, m, bs)]
 
             for batch in tqdm(batches, desc=f" Epoch {epoch+1} batches", leave=False):
+                # actualizar lr por batch
+                if lr_schedule:
+                    self.learning_rate = lr_schedule(self.step_count)
+                self.step_count += 1
+
                 Xb, Yb = X_train[batch], Y_train[batch]
                 self.forward(Xb, train=True)
                 self.backward(Yb)
@@ -238,4 +249,3 @@ class NeuralNetwork:
             plot_loss(epochs, train_losses, val_losses)
 
         return train_losses, val_losses
-

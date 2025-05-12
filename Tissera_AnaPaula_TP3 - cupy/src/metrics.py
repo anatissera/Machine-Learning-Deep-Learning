@@ -74,9 +74,9 @@ class Metrics:
         ax.set_yticks(range(len(self.labels)))
         ax.set_xticklabels(self.labels, fontsize=7)
         ax.set_yticklabels(self.labels, fontsize=8)
-        ax.set_xlabel('Predicción', fontsize=15)
-        ax.set_ylabel('Verdadero', fontsize=15)
-        ax.set_title('Matriz de Confusión', fontsize=18)
+        ax.set_xlabel('Predicción', fontsize=17)
+        ax.set_ylabel('Verdadero', fontsize=17)
+        ax.set_title('Matriz de Confusión', fontsize=19)
         plt.tight_layout()
         plt.show()
 
