@@ -4,6 +4,111 @@ import torch.nn as nn
 import torch.optim as optim
 import cupy as cp
 
+from .Neural_Network import NeuralNetwork
+from .metrics import Metrics
+
+SEED = 42
+
+def greedy_search(architectures, hyperparams, X_train, Y_train_oh, X_val, Y_val_oh, y_train, y_val, param_order, epochs=200, seed=SEED):
+    """Realiza búsqueda greedy de hiperparámetros optimizando la accuracy en validación."""
+    
+    best_config = {}
+    best_score = -float('inf')
+
+    def eval_config(config):
+        arch = config['arch']
+        opt = config['optimizer']
+        lr = config['learning_rate']
+        bs = config['batch_size']
+        l2 = config['l2_lambda']
+        dp = config['dropout_p']
+        bn = config['use_batchnorm']
+        es = config['early_stopping']
+        pat = config['patience']
+        sched = config['lr_schedule']
+        decay = config.get('decay_rate', None)
+        lr_min = config.get('lr_min', None)
+
+        if opt in ['gd', 'adam'] and bs is not None:
+            return -float('inf') 
+        if opt == 'mb' and bs is None:
+            bs = 1
+
+        nn = NeuralNetwork(
+            layer_sizes=arch,
+            learning_rate=lr,
+            seed=seed,
+            optimizer=opt,
+            batch_size=bs,
+            l2_lambda=l2,
+            dropout_p=dp,
+            use_batchnorm=bn,
+            early_stopping=es,
+            patience=pat,
+            lr_min=lr_min
+        )
+
+        lr_fn = None
+        if sched == 'linear':
+            lr_fn = nn.get_linear_schedule(final_lr=lr_min or 0.001, max_epochs=epochs)
+        elif sched == 'exp' and decay is not None:
+            lr_fn = nn.get_exponential_schedule(decay_rate=decay, final_lr=lr_min)
+
+        nn.train_bp(
+            X_train, Y_train_oh,
+            X_val=X_val, Y_val=Y_val_oh,
+            epochs=epochs,
+            plot=False,
+            lr_schedule=lr_fn,
+        )
+
+        # eval en validación
+        Yhat_v = nn.forward(X_val, train=False)
+        ypred_v = cp.argmax(Yhat_v, axis=0)
+        yproba_v = Yhat_v.T
+        m_v = Metrics(y_true=y_val, y_pred=ypred_v, y_proba=yproba_v)
+        return m_v.accuracy()
+
+    # Itera sobre los parámetros de forma greedy
+    for param in param_order:
+        best_val = None
+        param_best_score = -float('inf')
+
+        if param == 'arch':
+            candidates = architectures
+        else:
+            candidates = hyperparams[param]
+
+        for val in candidates:
+            if param == 'patience' and not best_config.get('early_stopping', False):
+                break
+
+            test_config = best_config.copy()
+            test_config[param] = val
+
+            for p in ['arch', 'optimizer', 'learning_rate', 'batch_size',
+                      'l2_lambda', 'dropout_p', 'use_batchnorm',
+                      'early_stopping', 'patience', 'lr_schedule', 'decay_rate', 'lr_min']:
+                if p not in test_config:
+                    if p == 'arch':
+                        test_config[p] = architectures[0]
+                    else:
+                        test_config[p] = hyperparams[p][0]
+
+            score = eval_config(test_config)
+
+            if score > param_best_score:
+                param_best_score = score
+                best_val = val
+
+        best_config[param] = best_val
+        print(f"Best {param}: {best_val} (val_acc={param_best_score:.4f})")
+
+        if param == param_order[-1]:
+            best_score = param_best_score
+
+    return best_config, best_score
+
 
 def get_dataloader(X, y, batch_size):
     """
@@ -35,6 +140,8 @@ def build_scheduler(optimizer, conf, n_batches):
     return None
 
 def train_model(ModelClass, conf, epochs, X_train, y_train, X_val=None, y_val=None):
+    """Entrena un modelo PyTorch con scheduler y early stopping, devolviendo el mejor estado."""
+    
     train_dl = get_dataloader(X_train, y_train, conf['batch_size'])
     val_dl   = get_dataloader(X_val,   y_val,   conf['batch_size'])
 

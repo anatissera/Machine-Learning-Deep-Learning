@@ -1,5 +1,3 @@
-# metrics.py
-
 import cupy as cp
 import matplotlib.pyplot as plt
 from IPython.display import display, Markdown
@@ -19,19 +17,16 @@ class Metrics:
         - y_proba: array de probabilidades predichas (shape: (m, n_classes)), opcional
         - labels: lista de etiquetas únicas (en orden) para la matriz de confusión, opcional
         """
-        # Convertir a CP arrays si no lo son
         self.y_true = cp.array(y_true)
         self.y_pred = cp.array(y_pred)
         self.y_proba = cp.array(y_proba) if y_proba is not None else None
 
         if labels is not None:
-            # Si labels viene de Python, lo usamos directamente
             self.labels = list(labels)
         else:
-            # Unir ambos y obtener únicos ordenados
             concatenado = cp.concatenate([self.y_true, self.y_pred])
             uniques = cp.unique(concatenado)
-            self.labels = uniques.get().tolist()     # lista de Python
+            self.labels = uniques.get().tolist()  
         self.label_to_index = {label: idx for idx, label in enumerate(self.labels)}
 
     def accuracy(self):
@@ -45,7 +40,7 @@ class Metrics:
             raise ValueError("Se requieren probabilidades predichas (y_proba) para cross-entropy.")
         m = self.y_true.shape[0]
         eps = 1e-15
-        # Obtener probabilidad de la clase verdadera por muestra
+
         probs = self.y_proba[cp.arange(m), self.y_true]
         log_probs = -cp.log(probs + eps)
         return float(cp.mean(log_probs).item())

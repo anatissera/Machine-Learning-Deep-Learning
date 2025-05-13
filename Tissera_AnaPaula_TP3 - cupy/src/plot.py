@@ -1,19 +1,17 @@
-# plot.py
 import cupy as cp
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
-
 
 def plot_images(X, y, indices=None, n_cols=5, cmap='gray', figsize_scale=3,
                 title_bg_color='#AEC6CF', title_color='#333333', title_alpha=0.6,
                 suptitle=None, suptitle_bg='#FFB7C5', suptitle_color='#333333',
                 suptitle_alpha=0.6, name_map=None, random_seed=42):
     """
-    Muestra imágenes en mosaico con títulos pastel y alpha.
+    Muestra imágenes según los índices dados.
     Si indices=None, elige 1 imagen aleatoria de cada clase distinta (hasta n_cols).
     Acepta X, y como arrays de CuPy o NumPy.
     """
-    # Selección automática de índices
+
     if indices is None:
         cp.random.seed(random_seed)
         y_cp = cp.array(y)
@@ -56,14 +54,13 @@ def plot_images(X, y, indices=None, n_cols=5, cmap='gray', figsize_scale=3,
     for i, idx in enumerate(indices):
         ax = axs[i]
         img = X[idx]
-        # Si es array de CuPy, pasarlo a NumPy para imshow
+   
         if isinstance(img, cp.ndarray):
             img = cp.asnumpy(img)
 
         if img.ndim == 1:
             img = img.reshape(28, 28)
 
-        # Extraemos el escalar de la etiqueta antes de usarlo como clave
         raw_label = y[idx]
         label = int(raw_label.item()) if isinstance(raw_label, cp.ndarray) else int(raw_label)
         display_name = name_map.get(label, str(label)) if name_map else str(label)
@@ -83,7 +80,7 @@ def plot_images(X, y, indices=None, n_cols=5, cmap='gray', figsize_scale=3,
 
 def plot_class_distribution(y, name_map=None, figsize=(8, 4), color='skyblue'):
     """
-    Muestra por pantalla el conteo de cada clase y dibuja un gráfico de barras.
+    Muestra el conteo de cada clase y dibuja un gráfico de barras.
     Acepta y como array de CuPy o NumPy.
     """
     y_cp = cp.array(y)
@@ -107,14 +104,13 @@ def plot_loss(epochs, train_losses, val_losses=None):
     Dibuja la evolución de la función de costo.
     train_losses y val_losses pueden ser listas o arrays de CuPy/NumPy.
     """
-    # Si vienen como CuPy arrays, convertirlos a NumPy para matplotlib
     if hasattr(train_losses, 'get'):
         train_losses = cp.asnumpy(train_losses)
     if val_losses is not None and hasattr(val_losses, 'get'):
         val_losses = cp.asnumpy(val_losses)
 
     plt.figure(figsize=(6, 4))
-    plt.plot(range(1, epochs + 1), train_losses, label="Train Loss", color="darkseagreen")
+    plt.plot(range(1, epochs + 1), train_losses, label="Train Loss", color="mediumaquamarine")
     if val_losses is not None:
         plt.plot(range(1, epochs + 1), val_losses, label="Val Loss", color="mediumpurple")
     plt.xlabel("Época", fontsize=14)

@@ -1,5 +1,3 @@
-# Neural_Network.py (convertido a CuPy)
-
 import cupy as cp
 import matplotlib.pyplot as plt
 from tqdm import trange, tqdm   
@@ -95,6 +93,7 @@ class NeuralNetwork:
         return dZ, dgamma, dbeta
 
     def forward(self, X, train=True):
+        """Realiza la propagación hacia adelante, aplicando batchnorm y dropout si corresponde."""
         X_cp = cp.array(X)
         A = X_cp.T
         self.caches = {'A0': A}
@@ -117,6 +116,7 @@ class NeuralNetwork:
         return A
 
     def compute_loss(self, Y_hat, Y):
+        """Actualiza pesos y biases usando SGD o Adam (y batchnorm si está activo)."""
         Y_cp = cp.array(Y)
         m = Y_cp.shape[0]
         probs = Y_hat.T[Y_cp == 1]
@@ -180,7 +180,7 @@ class NeuralNetwork:
 
     def get_linear_schedule(self, final_lr, max_epochs):
         """
-        Crea función de tasa lineal con saturación:
+        Devuelve una función de tasa lineal con saturación:
         lr(t) = max(final_lr, initial_lr * (1 - t/max_epochs))
         """
         def lr_fn(t):
@@ -189,7 +189,7 @@ class NeuralNetwork:
 
     def get_exponential_schedule(self, decay_rate=0.9, final_lr=None):
         """
-        Crea función de tasa exponencial:
+        Devuelve una función de tasa exponencial con cota inferior opcional:
         lr(t) = initial_lr * exp(-decay_rate * t)
         """
         def lr_fn(t):
@@ -221,7 +221,7 @@ class NeuralNetwork:
                 batches = [perm[i:i+bs] for i in range(0, m, bs)]
 
             for batch in tqdm(batches, desc=f" Epoch {epoch+1} batches", leave=False):
-                # actualizar lr por batch
+                # lr por batch
                 if lr_schedule:
                     self.learning_rate = lr_schedule(self.step_count)
                 self.step_count += 1
