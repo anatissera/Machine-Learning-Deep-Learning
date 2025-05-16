@@ -106,30 +106,31 @@ class KMeans:
 # Código principal: calcular L vs K, detectar codo
 # ---------------------------------------------------
 
-def find_elbow(Ks, Ls):
+def find_elbow(Ks, Ls, alpha=0.02):
     """
-    Detecta el codo en la curva L vs K.
-    Ks, Ls: listas o arrays de igual longitud.
-    Devuelve (elbow_idx, distances_np).
+    Ks: lista de K (enteros)
+    Ls: lista de inercia correspondiente
+    alpha: fracción mínima (p.ej. 0.1 = 10%) de la reducción inicial D1
+    
+    Devuelve: (bestK, Ds_cpu), donde bestK es el K elegido,
+    y Ds_cpu es el array con los Dk relativos a D1 (en NumPy).
     """
-    # Convertir a CuPy arrays
-    Ks_cp = cp.array(Ks, dtype=cp.float32)
-    Ls_cp = cp.array(Ls, dtype=cp.float32)
-
-    # Puntos extremos
-    pt1 = cp.array([Ks_cp[0], Ls_cp[0]])
-    pt2 = cp.array([Ks_cp[-1], Ls_cp[-1]])
-
-    # Construir matriz de puntos [(K,L), ...]
-    pts = cp.stack([Ks_cp, Ls_cp], axis=1)  # shape (n,2)
-
-    # Cálculo vectorial de distancias punto–línea
-    # área del paralelogramo: |(pt2-pt1) x (pt-pt1)|, dividido entre longitud de base
-    vec = pt2 - pt1  # base
-    num = cp.abs(cp.cross(vec, pts - pt1))
-    den = cp.linalg.norm(vec)
-    distances_cp = num / den  # shape (n,)
-
-    elbow_idx = int(cp.argmax(distances_cp))
-    distances_np = cp.asnumpy(distances_cp)
-    return elbow_idx, distances_np
+    # Pasar Ls a CuPy para cálculo GPU
+    Ls_cp = cp.array(Ls, dtype=cp.float64)
+    # Calcular disminuciones Dk = L[k-1] - L[k]
+    D_cp = Ls_cp[:-1] - Ls_cp[1:]
+    # Normalizar por la primera reducción D1
+    D_rel_cp = D_cp / D_cp[0]
+    # Buscar primer índice i donde D_rel < alpha
+    # Atención: i corresponde a la disminución entre K=i+1 y K=i+2
+    mask = D_rel_cp < alpha
+    if cp.any(mask):
+        idx = int(cp.argmax(mask))  # el primer True
+        bestK = Ks[idx+1]           # corresponde a K = idx+2, pero usamos idx+1 (0‑based)
+    else:
+        # Si nunca cae por debajo del umbral, escogemos el máximo ratio (viejo codo)
+        idx = int(cp.argmax(cp.abs(cp.diff(D_rel_cp, n=1))))
+        bestK = Ks[idx+1]
+    # Traer a NumPy solo para inspección (opcional)
+    Ds_cpu = cp.asnumpy(D_rel_cp)
+    return bestK, Ds_cpu
