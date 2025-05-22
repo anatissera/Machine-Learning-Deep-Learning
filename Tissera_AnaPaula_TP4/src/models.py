@@ -220,46 +220,55 @@ class GMM:
 
 
 
-
-
-
+from collections import deque
 
 class DBSCAN:
-    def __init__(self, eps=0.2, min_samples=5):
+    def __init__(self, eps=0.5, min_samples=5):
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
+        self.n_clusters_ = None
 
     def fit(self, X):
-        N, _ = X.shape
+        N = X.shape[0]
         labels = -cp.ones(N, dtype=cp.int32)
         visited = cp.zeros(N, dtype=cp.bool_)
-        cid = 0
+        cluster_id = 0
 
-        def region_query(i):
-            d = cp.linalg.norm(X - X[i], axis=1)
-            return cp.where(d <= self.eps)[0].tolist()
+        # Matriz completa de distancias
+        dists = cp.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
 
         for i in range(N):
             if visited[i]:
                 continue
             visited[i] = True
-            nbrs = region_query(i)
-            if len(nbrs) < self.min_samples:
+
+            # Vecinos de i
+            neigh = cp.where(dists[i] <= self.eps)[0]
+            if neigh.size < self.min_samples:
                 labels[i] = -1
-            else:
-                labels[i] = cid
-                stack = nbrs[:]
-                while stack:
-                    j = stack.pop()
-                    if not visited[j]:
-                        visited[j] = True
-                        nbrs_j = region_query(j)
-                        if len(nbrs_j) >= self.min_samples:
-                            stack += nbrs_j
-                    if labels[j] == -1:
-                        labels[j] = cid
-                cid += 1
+                continue
+
+            # Nuevo cluster
+            labels[i] = cluster_id
+            queue = deque(neigh.tolist())
+            while queue:
+                j = queue.popleft()
+                if not visited[j]:
+                    visited[j] = True
+                    neigh_j = cp.where(dists[j] <= self.eps)[0]
+                    if neigh_j.size >= self.min_samples:
+                        for nb in neigh_j.tolist():
+                            if not visited[nb]:
+                                queue.append(nb)
+                if labels[j] == -1:
+                    labels[j] = cluster_id
+
+            cluster_id += 1
 
         self.labels_ = labels
+        self.n_clusters_ = int(cluster_id)
         return self
+
+    def fit_predict(self, X):
+        return self.fit(X).labels_
