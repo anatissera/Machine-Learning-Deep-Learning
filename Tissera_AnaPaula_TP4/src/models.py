@@ -360,115 +360,195 @@ class DBSCAN:
     
 # 2
 
+# class PCA:
+#     def __init__(self, n_components):
+#         self.n_components = n_components
+#         self.mean_ = None          # media de cada variable (en GPU)
+#         self.components_ = None    # vectores propios seleccionados (en GPU)
+#         self.S_ = None             # valores singulares completos (en GPU)
+
+#     def fit(self, X):
+#         """
+#         Ajusta el modelo PCA sobre X (cp.ndarray, n_samples×n_features).
+#         Calcula SVD de la matriz centrada y guarda:
+#           - self.mean_
+#           - self.S_ (todos los valores singulares)
+#           - self.components_ (primeras n_components filas de Vt)
+#         """
+#         # 1) media de cada característica
+#         self.mean_ = cp.mean(X, axis=0)
+#         X_centered = X - self.mean_
+
+#         # 2) SVD completo: X_centered = U @ diag(S) @ Vt
+#         U, S, Vt = cp.linalg.svd(X_centered, full_matrices=False)
+#         self.S_ = S
+#         # 3) quedarnos sólo con los n_components primeros vectores propios
+#         self.components_ = Vt[:self.n_components]
+#         return self
+
+#     def transform(self, X):
+#         """
+#         Proyecta X al espacio reducido (n_samples×n_components).
+#         """
+#         X_centered = X - self.mean_
+#         return X_centered.dot(self.components_.T)
+
+#     def inverse_transform(self, X_proj):
+#         """
+#         Reconstruye una aproximación en el espacio original.
+#         """
+#         return X_proj.dot(self.components_) + self.mean_
+    
+#     def cummulative_variance(self):
+#         """
+#         Calcula la varianza acumulada explicada por las componentes principales.
+#         Devuelve un array con la varianza acumulada para cada componente.
+#         """
+#         n_samples = self.S_.shape[0]
+#         eigvals = (self.S_ ** 2) / (n_samples - 1)
+#         total_var = cp.sum(eigvals)
+#         explained_var = eigvals / total_var
+#         cum_var = cp.cumsum(explained_var)
+        
+#         return cum_var
+
+#     def plot_explained_variance(self):
+#         """
+#         Genera dos figuras:
+#          1) Barras con la varianza explicada individual por cada componente.
+#          2) Línea con la varianza acumulada.
+#         """
+#         # número de muestras (igual a len(S_))
+#         n = self.S_.shape[0]
+#         # eigenvalores λ_i = S_i^2 / (n_samples - 1)
+#         eigvals = (self.S_ ** 2) / (n - 1)
+#         total_var = cp.sum(eigvals)
+#         explained_var = eigvals / total_var
+#         cum_var = cp.cumsum(explained_var)
+
+#         # pasar a CPU
+#         ev = explained_var.get()
+#         cv = cum_var.get()
+#         idx = range(1, len(ev) + 1)
+
+#         # figura 1: varianza individual
+#         plt.figure(figsize=(10,6))
+#         plt.bar(idx, ev, alpha=0.7, color = "teal")
+#         plt.xlabel('Componente principal', fontsize=15)
+#         plt.ylabel('Varianza explicada individual', fontsize=15)
+#         plt.title('Varianza explicada por componente', fontsize=18)
+#         plt.xticks(fontsize=13)
+#         plt.yticks(fontsize=13)
+#         plt.xlim(1, len(ev))
+#         plt.tight_layout()
+        
+#         # figura 1.b: varianza individual zoomed
+#         plt.figure(figsize=(8,6))
+#         plt.bar(idx, ev, alpha=0.7, color = "teal")
+#         plt.xlabel('Componente principal', fontsize=15)
+#         plt.ylabel('Varianza explicada individual', fontsize=15)
+#         plt.title('Varianza explicada hasta el componente 100', fontsize=18)
+#         plt.xticks(fontsize=13)
+#         plt.yticks(fontsize=13)
+#         plt.xlim(1, 100)
+#         plt.tight_layout()
+
+
+#         # figura 2: varianza acumulada
+#         plt.figure(figsize=(10,6))
+#         plt.plot(idx, cv, marker='o', linewidth=1, markersize=1, color = "crimson")
+#         plt.xlabel('Componente principal', fontsize=15)
+#         plt.ylabel('Varianza explicada acumulada', fontsize=15)
+#         plt.title('Curva de varianza explicada acumulada', fontsize=18)
+#         plt.xticks(fontsize=13)
+#         plt.yticks(fontsize=13)
+#         plt.ylim(0, 1.03)
+#         plt.xlim(1, len(cv))
+#         plt.grid(True, linestyle='--', alpha=0.5)
+#         plt.tight_layout()
+#         plt.show()
+        
 class PCA:
     def __init__(self, n_components):
         self.n_components = n_components
-        self.mean_ = None          # media de cada variable (en GPU)
-        self.components_ = None    # vectores propios seleccionados (en GPU)
-        self.S_ = None             # valores singulares completos (en GPU)
+        self.mean_       = None
+        self.components_ = None
+        self.S_          = None
 
     def fit(self, X):
-        """
-        Ajusta el modelo PCA sobre X (cp.ndarray, n_samples×n_features).
-        Calcula SVD de la matriz centrada y guarda:
-          - self.mean_
-          - self.S_ (todos los valores singulares)
-          - self.components_ (primeras n_components filas de Vt)
-        """
-        # 1) media de cada característica
         self.mean_ = cp.mean(X, axis=0)
-        X_centered = X - self.mean_
-
-        # 2) SVD completo: X_centered = U @ diag(S) @ Vt
-        U, S, Vt = cp.linalg.svd(X_centered, full_matrices=False)
+        Xc = X - self.mean_
+        U, S, Vt = cp.linalg.svd(Xc, full_matrices=False)
         self.S_ = S
-        # 3) quedarnos sólo con los n_components primeros vectores propios
         self.components_ = Vt[:self.n_components]
         return self
 
     def transform(self, X):
-        """
-        Proyecta X al espacio reducido (n_samples×n_components).
-        """
-        X_centered = X - self.mean_
-        return X_centered.dot(self.components_.T)
+        Xc = X - self.mean_
+        return Xc.dot(self.components_.T)
 
-    def inverse_transform(self, X_proj):
+    def inverse_transform(self, X_proj, 
+                          clamp: bool = True,
+                          binarize: bool = False,
+                          threshold: float = 128.0):
         """
-        Reconstruye una aproximación en el espacio original.
+        Reconstruye la aproximación en el espacio original.
+
+        Parámetros:
+        - X_proj: proyecciones (n_samples×n_components)
+        - clamp: si True, limita valores a [0,255]
+        - binarize: si True, convierte a 0 o 255 (eliminando grises)
+        - threshold: umbral para binarizar (default 128)
         """
-        return X_proj.dot(self.components_) + self.mean_
-    
-    def cummulative_variance(self):
-        """
-        Calcula la varianza acumulada explicada por las componentes principales.
-        Devuelve un array con la varianza acumulada para cada componente.
-        """
-        n_samples = self.S_.shape[0]
-        eigvals = (self.S_ ** 2) / (n_samples - 1)
-        total_var = cp.sum(eigvals)
-        explained_var = eigvals / total_var
-        cum_var = cp.cumsum(explained_var)
+        # reconstrucción sin modificaciones
+        X_rec = X_proj.dot(self.components_) + self.mean_
         
-        return cum_var
+        if clamp:
+            # aseguramos que no salgan valores <0 o >255
+            X_rec = cp.clip(X_rec, 0, 255)
+        
+        if binarize:
+            # todo <= threshold → 0; > threshold → 255
+            X_rec = cp.where(X_rec > threshold, 255.0, 0.0)
+
+        return X_rec
+
+    def cummulative_variance(self):
+        n = self.S_.shape[0]
+        eigvals = (self.S_**2) / (n - 1)
+        explained = eigvals / cp.sum(eigvals)
+        return cp.cumsum(explained)
 
     def plot_explained_variance(self):
-        """
-        Genera dos figuras:
-         1) Barras con la varianza explicada individual por cada componente.
-         2) Línea con la varianza acumulada.
-        """
-        # número de muestras (igual a len(S_))
         n = self.S_.shape[0]
-        # eigenvalores λ_i = S_i^2 / (n_samples - 1)
-        eigvals = (self.S_ ** 2) / (n - 1)
-        total_var = cp.sum(eigvals)
-        explained_var = eigvals / total_var
-        cum_var = cp.cumsum(explained_var)
+        eigvals = (self.S_**2) / (n - 1)
+        explained = eigvals / cp.sum(eigvals)
+        cum_var   = cp.cumsum(explained)
+        ev = explained.get(); cv = cum_var.get()
+        idx = range(1, len(ev)+1)
 
-        # pasar a CPU
-        ev = explained_var.get()
-        cv = cum_var.get()
-        idx = range(1, len(ev) + 1)
-
-        # figura 1: varianza individual
+        # Varianza individual
         plt.figure(figsize=(10,6))
-        plt.bar(idx, ev, alpha=0.7, color = "teal")
-        plt.xlabel('Componente principal', fontsize=15)
-        plt.ylabel('Varianza explicada individual', fontsize=15)
-        plt.title('Varianza explicada por componente', fontsize=18)
-        plt.xticks(fontsize=13)
-        plt.yticks(fontsize=13)
-        plt.xlim(1, len(ev))
+        plt.bar(idx, ev, alpha=0.7, color='teal')
+        plt.xlabel('Componente principal'); plt.ylabel('Varianza individual')
+        plt.title('Varianza explicada por componente'); plt.xlim(1, len(ev))
         plt.tight_layout()
-        
-        # figura 1.b: varianza individual zoomed
+
+        # Zoom hasta comp. 100
         plt.figure(figsize=(8,6))
-        plt.bar(idx, ev, alpha=0.7, color = "teal")
-        plt.xlabel('Componente principal', fontsize=15)
-        plt.ylabel('Varianza explicada individual', fontsize=15)
-        plt.title('Varianza explicada hasta el componente 100', fontsize=18)
-        plt.xticks(fontsize=13)
-        plt.yticks(fontsize=13)
-        plt.xlim(1, 100)
+        plt.bar(idx, ev, alpha=0.7, color='teal')
+        plt.xlabel('Componente principal'); plt.ylabel('Varianza individual')
+        plt.title('Varianza explicada (componentes 1–100)'); plt.xlim(1, 100)
         plt.tight_layout()
 
-
-        # figura 2: varianza acumulada
+        # Varianza acumulada
         plt.figure(figsize=(10,6))
-        plt.plot(idx, cv, marker='o', linewidth=1, markersize=1, color = "crimson")
-        plt.xlabel('Componente principal', fontsize=15)
-        plt.ylabel('Varianza explicada acumulada', fontsize=15)
-        plt.title('Curva de varianza explicada acumulada', fontsize=18)
-        plt.xticks(fontsize=13)
-        plt.yticks(fontsize=13)
-        plt.ylim(0, 1.03)
-        plt.xlim(1, len(cv))
+        plt.plot(idx, cv, marker='o', linewidth=1, color='crimson')
+        plt.xlabel('Componente principal'); plt.ylabel('Varianza acumulada')
+        plt.title('Curva de varianza acumulada'); plt.ylim(0,1.03); plt.xlim(1, len(cv))
         plt.grid(True, linestyle='--', alpha=0.5)
         plt.tight_layout()
         plt.show()
-        
-        
 
 import torch
 from torch import nn, optim
